@@ -24,6 +24,8 @@ export const adminAPI = {
   createDriver: (data: { name: string; mobile: string; password: string; baseSalary?: number }) => api.post("/admin/drivers", data),
   updateDriverStatus: (id: string, status: string) => api.put(`/admin/drivers/${id}/status`, { status }),
   getTransactions: (params?: any) => api.get("/admin/transactions", { params }),
+  getDriverHistory: (driverId: string, params?: { type?: string; startDate?: string; endDate?: string }) => api.get("/admin/transactions", { params: { driverId, ...params } }),
+  updateTransaction: (id: string, data: { rate?: number; totalAmount?: number }) => api.put(`/admin/transactions/${id}`, data),
   createFinancialNote: (data: any) => api.post("/admin/financial/note", data),
 };
 
@@ -47,14 +49,10 @@ export const notificationAPI = {
 };
 
 export const expenseAPI = {
-  getAll: (params?: { type?: string; startDate?: string; endDate?: string; category?: string }) =>
-    api.get("/admin/expenses", { params }),
-  getSummary: (params?: { startDate?: string; endDate?: string }) =>
-    api.get("/admin/expenses/summary", { params }),
-  create: (data: { type: "CASH" | "BANK"; amount: number; description: string; category?: string; date?: string }) =>
-    api.post("/admin/expenses", data),
-  update: (id: string, data: { type?: string; amount?: number; description?: string; category?: string; date?: string }) =>
-    api.put(`/admin/expenses/${id}`, data),
+  getAll: (params?: { type?: string; startDate?: string; endDate?: string; category?: string }) => api.get("/admin/expenses", { params }),
+  getSummary: (params?: { startDate?: string; endDate?: string }) => api.get("/admin/expenses/summary", { params }),
+  create: (data: { type: "CASH" | "BANK"; amount: number; description: string; category?: string; date?: string }) => api.post("/admin/expenses", data),
+  update: (id: string, data: { type?: string; amount?: number; description?: string; category?: string; date?: string }) => api.put(`/admin/expenses/${id}`, data),
   delete: (id: string) => api.delete(`/admin/expenses/${id}`),
 };
 

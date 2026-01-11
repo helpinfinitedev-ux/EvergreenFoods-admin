@@ -8,6 +8,19 @@ interface DriverForm {
   baseSalary: string;
 }
 
+interface Transaction {
+  id: string;
+  type: string;
+  amount: number;
+  rate?: number;
+  totalAmount?: number;
+  date: string;
+  customer?: { name: string };
+  details?: string;
+}
+
+type HistoryTab = "BUY" | "SELL" | "WEIGHT_LOSS";
+
 const initialForm: DriverForm = {
   name: "",
   mobile: "",
@@ -23,9 +36,24 @@ export default function Drivers() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
+  // History modal state
+  const [selectedDriver, setSelectedDriver] = useState<any>(null);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyTab, setHistoryTab] = useState<HistoryTab>("BUY");
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
   useEffect(() => {
     loadDrivers();
   }, []);
+
+  useEffect(() => {
+    if (selectedDriver && showHistoryModal) {
+      loadDriverHistory();
+    }
+  }, [selectedDriver, historyTab, startDate, endDate]);
 
   const loadDrivers = async () => {
     try {
@@ -36,6 +64,50 @@ export default function Drivers() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadDriverHistory = async () => {
+    if (!selectedDriver) return;
+    setHistoryLoading(true);
+    try {
+      const params: { type?: string; startDate?: string; endDate?: string } = {
+        type: historyTab,
+      };
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = new Date(new Date(endDate).setHours(23, 59, 59, 999)).toISOString();
+
+      const response = await adminAPI.getDriverHistory(selectedDriver.id, params);
+      setTransactions(response.data);
+    } catch (err) {
+      console.error("Failed to load driver history", err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const openHistoryModal = (driver: any) => {
+    setSelectedDriver(driver);
+    setHistoryTab("BUY");
+    setStartDate("");
+    setEndDate("");
+    setTransactions([]);
+    setShowHistoryModal(true);
+  };
+
+  const closeHistoryModal = () => {
+    setShowHistoryModal(false);
+    setSelectedDriver(null);
+    setTransactions([]);
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   const toggleStatus = async (id: string, currentStatus: string) => {
@@ -158,7 +230,16 @@ export default function Drivers() {
           </thead>
           <tbody>
             {drivers.map((driver) => (
-              <tr key={driver.id} style={{ borderBottom: "1px solid #e5e7eb" }}>
+              <tr
+                key={driver.id}
+                style={{
+                  borderBottom: "1px solid #e5e7eb",
+                  cursor: "pointer",
+                  transition: "background 0.15s",
+                }}
+                onClick={() => openHistoryModal(driver)}
+                onMouseOver={(e) => (e.currentTarget.style.background = "#f9fafb")}
+                onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}>
                 <td style={tdStyle}>{driver.name}</td>
                 <td style={tdStyle}>{driver.mobile}</td>
                 <td style={tdStyle}>
@@ -190,7 +271,10 @@ export default function Drivers() {
                 <td style={tdStyle}>₹{driver.baseSalary || 0}</td>
                 <td style={tdStyle}>
                   <button
-                    onClick={() => toggleStatus(driver.id, driver.status)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleStatus(driver.id, driver.status);
+                    }}
                     style={{
                       padding: "6px 16px",
                       background: driver.status === "ACTIVE" ? "#ef4444" : "#10b981",
@@ -332,6 +416,250 @@ export default function Drivers() {
           </div>
         </div>
       )}
+
+      {/* Driver History Modal */}
+      {showHistoryModal && selectedDriver && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0, 0, 0, 0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={closeHistoryModal}>
+          <div
+            style={{
+              background: "white",
+              borderRadius: "16px",
+              width: "100%",
+              maxWidth: "900px",
+              maxHeight: "85vh",
+              overflow: "hidden",
+              boxShadow: "0 25px 80px rgba(0, 0, 0, 0.35)",
+            }}
+            onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: "24px 28px",
+                borderBottom: "1px solid #e5e7eb",
+                background: "linear-gradient(135deg, #f8fafc, #f1f5f9)",
+              }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: "22px", fontWeight: "700", color: "#111827" }}>{selectedDriver.name}'s History</h2>
+                  <p style={{ margin: "4px 0 0 0", fontSize: "14px", color: "#6b7280" }}>View transactions and activity</p>
+                </div>
+                <button
+                  onClick={closeHistoryModal}
+                  style={{
+                    background: "#f3f4f6",
+                    border: "none",
+                    fontSize: "20px",
+                    cursor: "pointer",
+                    color: "#6b7280",
+                    padding: "8px 12px",
+                    borderRadius: "8px",
+                    lineHeight: 1,
+                    transition: "background 0.15s",
+                  }}
+                  onMouseOver={(e) => (e.currentTarget.style.background = "#e5e7eb")}
+                  onMouseOut={(e) => (e.currentTarget.style.background = "#f3f4f6")}>
+                  ✕
+                </button>
+              </div>
+
+              {/* Tabs */}
+              <div style={{ display: "flex", gap: "8px", marginTop: "20px" }}>
+                {(["BUY", "SELL", "WEIGHT_LOSS"] as HistoryTab[]).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setHistoryTab(tab)}
+                    style={{
+                      padding: "10px 20px",
+                      background:
+                        historyTab === tab
+                          ? tab === "BUY"
+                            ? "linear-gradient(135deg, #3b82f6, #2563eb)"
+                            : tab === "SELL"
+                            ? "linear-gradient(135deg, #10b981, #059669)"
+                            : "linear-gradient(135deg, #f59e0b, #d97706)"
+                          : "#fff",
+                      color: historyTab === tab ? "white" : "#4b5563",
+                      border: historyTab === tab ? "none" : "1px solid #d1d5db",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      transition: "all 0.15s",
+                      boxShadow: historyTab === tab ? "0 2px 8px rgba(0,0,0,0.15)" : "none",
+                    }}>
+                    {tab === "WEIGHT_LOSS" ? "Weight Loss" : tab.charAt(0) + tab.slice(1).toLowerCase()}
+                  </button>
+                ))}
+              </div>
+
+              {/* Date Filters */}
+              <div style={{ display: "flex", gap: "16px", marginTop: "16px", alignItems: "center" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <label style={{ fontSize: "13px", color: "#6b7280", fontWeight: "500" }}>From:</label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    style={{
+                      padding: "8px 12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "6px",
+                      fontSize: "14px",
+                      color: "#374151",
+                    }}
+                  />
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <label style={{ fontSize: "13px", color: "#6b7280", fontWeight: "500" }}>To:</label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    style={{
+                      padding: "8px 12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "6px",
+                      fontSize: "14px",
+                      color: "#374151",
+                    }}
+                  />
+                </div>
+                {(startDate || endDate) && (
+                  <button
+                    onClick={() => {
+                      setStartDate("");
+                      setEndDate("");
+                    }}
+                    style={{
+                      padding: "8px 14px",
+                      background: "#fee2e2",
+                      color: "#dc2626",
+                      border: "none",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      fontSize: "13px",
+                      fontWeight: "500",
+                    }}>
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div style={{ padding: "0", maxHeight: "calc(85vh - 220px)", overflowY: "auto" }}>
+              {historyLoading ? (
+                <div style={{ padding: "60px", textAlign: "center", color: "#6b7280" }}>
+                  <div
+                    style={{
+                      width: "40px",
+                      height: "40px",
+                      border: "3px solid #e5e7eb",
+                      borderTop: "3px solid #3b82f6",
+                      borderRadius: "50%",
+                      animation: "spin 1s linear infinite",
+                      margin: "0 auto 16px",
+                    }}
+                  />
+                  Loading transactions...
+                </div>
+              ) : transactions.length === 0 ? (
+                <div style={{ padding: "60px", textAlign: "center", color: "#9ca3af" }}>
+                  <div style={{ fontSize: "48px", marginBottom: "16px" }}>📋</div>
+                  <p style={{ fontSize: "16px", margin: 0 }}>No {historyTab.toLowerCase().replace("_", " ")} transactions found</p>
+                  <p style={{ fontSize: "14px", marginTop: "8px" }}>{startDate || endDate ? "Try adjusting the date filter" : "This driver has no records yet"}</p>
+                </div>
+              ) : (
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}>
+                      <th style={historyThStyle}>Date</th>
+                      <th style={historyThStyle}>Amount (Kg)</th>
+                      {historyTab !== "WEIGHT_LOSS" && <th style={historyThStyle}>Rate</th>}
+                      {historyTab !== "WEIGHT_LOSS" && <th style={historyThStyle}>Total</th>}
+                      {historyTab === "SELL" && <th style={historyThStyle}>Customer</th>}
+                      <th style={historyThStyle}>Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {transactions.map((txn) => (
+                      <tr key={txn.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                        <td style={historyTdStyle}>{formatDate(txn.date)}</td>
+                        <td style={historyTdStyle}>
+                          <span
+                            style={{
+                              fontWeight: "600",
+                              color: historyTab === "BUY" ? "#2563eb" : historyTab === "SELL" ? "#059669" : "#d97706",
+                            }}>
+                            {Number(txn.amount).toFixed(2)} Kg
+                          </span>
+                        </td>
+                        {historyTab !== "WEIGHT_LOSS" && <td style={historyTdStyle}>₹{txn.rate ? Number(txn.rate).toFixed(2) : "-"}</td>}
+                        {historyTab !== "WEIGHT_LOSS" && (
+                          <td style={historyTdStyle}>
+                            <span style={{ fontWeight: "600" }}>₹{txn.totalAmount ? Number(txn.totalAmount).toLocaleString("en-IN") : "-"}</span>
+                          </td>
+                        )}
+                        {historyTab === "SELL" && <td style={historyTdStyle}>{txn.customer?.name || "-"}</td>}
+                        <td style={{ ...historyTdStyle, color: "#9ca3af", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis" }}>{txn.details || "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Modal Footer - Summary */}
+            {transactions.length > 0 && (
+              <div
+                style={{
+                  padding: "16px 28px",
+                  borderTop: "1px solid #e5e7eb",
+                  background: "#f9fafb",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}>
+                <span style={{ fontSize: "14px", color: "#6b7280" }}>
+                  {transactions.length} transaction{transactions.length !== 1 ? "s" : ""}
+                </span>
+                <div style={{ display: "flex", gap: "24px" }}>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: "12px", color: "#9ca3af", marginBottom: "2px" }}>Total Quantity</div>
+                    <div style={{ fontSize: "16px", fontWeight: "700", color: "#111827" }}>{transactions.reduce((sum, t) => sum + Number(t.amount), 0).toFixed(2)} Kg</div>
+                  </div>
+                  {historyTab !== "WEIGHT_LOSS" && (
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: "12px", color: "#9ca3af", marginBottom: "2px" }}>Total Amount</div>
+                      <div style={{ fontSize: "16px", fontWeight: "700", color: "#111827" }}>₹{transactions.reduce((sum, t) => sum + Number(t.totalAmount || 0), 0).toLocaleString("en-IN")}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }
@@ -367,4 +695,20 @@ const inputStyle: React.CSSProperties = {
   outline: "none",
   transition: "border-color 0.15s, box-shadow 0.15s",
   boxSizing: "border-box",
+};
+
+const historyThStyle: React.CSSProperties = {
+  padding: "14px 20px",
+  textAlign: "left",
+  fontSize: "13px",
+  fontWeight: "600",
+  color: "#6b7280",
+  textTransform: "uppercase",
+  letterSpacing: "0.5px",
+};
+
+const historyTdStyle: React.CSSProperties = {
+  padding: "14px 20px",
+  fontSize: "14px",
+  color: "#374151",
 };
