@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { adminAPI } from '../api';
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 export default function Sold() {
     const [transactions, setTransactions] = useState<any[]>([]);
@@ -43,6 +45,100 @@ export default function Sold() {
     const totalAmount = transactions.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
     const totalValue = transactions.reduce((sum, tx) => sum + Number(tx.totalAmount || 0), 0);
 
+    const formatIndianNumber = (num: number): string => {
+        const numStr = Math.round(num).toString();
+        if (numStr.length <= 3) return numStr;
+
+        const lastThree = numStr.slice(-3);
+        const remaining = numStr.slice(0, -3);
+        return remaining.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + "," + lastThree;
+    };
+
+    const formatMoneyPdf = (value: any) => {
+        const n = Number(value || 0);
+        const fixed = n.toFixed(2);
+        const [intPart, decPart] = fixed.split(".");
+        return "Rs." + formatIndianNumber(Number(intPart)) + "." + decPart;
+    };
+
+    const formatDatePdf = (dateString: string) => {
+        return new Date(dateString).toLocaleDateString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+        });
+    };
+
+    const downloadPdf = () => {
+        if (transactions.length === 0) return;
+
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+
+        doc.setFontSize(18);
+        doc.setFont("helvetica", "bold");
+        doc.text("Evergreen Foods", pageWidth / 2, 18, { align: "center" });
+
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "normal");
+        doc.text("Sold (Sales) Transactions", pageWidth / 2, 26, { align: "center" });
+
+        const periodText =
+            filter.startDate || filter.endDate
+                ? "Period: " + (filter.startDate || "Start") + " to " + (filter.endDate || "Present")
+                : "Report Generated: " + new Date().toLocaleDateString("en-IN");
+
+        doc.setFontSize(10);
+        doc.text(periodText, 14, 36);
+
+        const headers = ["Date", "Driver", "Customer", "Qty", "Unit", "Rate", "Total", "Details"];
+        const rows = transactions.map((tx) => [
+            formatDatePdf(tx.date),
+            tx.driver?.name || "-",
+            tx.customer?.name || "-",
+            Number(tx.amount || 0).toFixed(2),
+            tx.unit || "-",
+            tx.rate ? formatMoneyPdf(tx.rate) : "-",
+            tx.totalAmount ? formatMoneyPdf(tx.totalAmount) : "-",
+            (tx.details ? String(tx.details).replaceAll("₹", "Rs.") : "-") as string,
+        ]);
+
+        autoTable(doc, {
+            head: [headers],
+            body: rows,
+            startY: 42,
+            styles: {
+                fontSize: 8.5,
+                cellPadding: 2.5,
+                overflow: "linebreak",
+                valign: "top",
+            },
+            headStyles: {
+                fillColor: [16, 185, 129], // green theme for Sold
+                textColor: 255,
+                fontStyle: "bold",
+            },
+            alternateRowStyles: {
+                fillColor: [249, 250, 251],
+            },
+            columnStyles: {
+                0: { cellWidth: 22 }, // Date
+                1: { cellWidth: 22 }, // Driver
+                2: { cellWidth: 22 }, // Customer
+                3: { cellWidth: 12 }, // Qty
+                4: { cellWidth: 12 }, // Unit
+                5: { cellWidth: 18 }, // Rate
+                6: { cellWidth: 20 }, // Total
+                7: { cellWidth: "auto" }, // Details (wrap)
+            },
+            tableWidth: "auto",
+            margin: { left: 14, right: 14 },
+        });
+
+        const fileName = "sold_transactions_" + new Date().toISOString().split("T")[0] + ".pdf";
+        doc.save(fileName);
+    };
+
     if (loading) return <div style={{ padding: '40px', textAlign: 'center' }}>Loading...</div>;
 
     return (
@@ -61,6 +157,39 @@ export default function Sold() {
                 }}>
                     {transactions.length} records
                 </span>
+                <button
+                    onClick={downloadPdf}
+                    disabled={transactions.length === 0}
+                    style={{
+                        marginLeft: "auto",
+                        padding: "10px 16px",
+                        background: transactions.length === 0 ? "#e5e7eb" : "linear-gradient(135deg, #8b5cf6, #7c3aed)",
+                        color: transactions.length === 0 ? "#9ca3af" : "white",
+                        border: "none",
+                        borderRadius: "10px",
+                        cursor: transactions.length === 0 ? "not-allowed" : "pointer",
+                        fontWeight: "700",
+                        fontSize: "14px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        boxShadow: transactions.length === 0 ? "none" : "0 2px 10px rgba(139, 92, 246, 0.3)",
+                        transition: "transform 0.15s, box-shadow 0.15s",
+                    }}
+                    onMouseEnter={(e) => {
+                        if (transactions.length > 0) {
+                            e.currentTarget.style.transform = "translateY(-1px)";
+                            e.currentTarget.style.boxShadow = "0 4px 14px rgba(139, 92, 246, 0.4)";
+                        }
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = "translateY(0)";
+                        e.currentTarget.style.boxShadow = transactions.length === 0 ? "none" : "0 2px 10px rgba(139, 92, 246, 0.3)";
+                    }}
+                >
+                    <span style={{ fontSize: "16px" }}>📄</span>
+                    Download PDF
+                </button>
             </div>
 
             {/* Summary Cards */}

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { adminAPI } from "../api";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 export default function Bought() {
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -7,6 +9,7 @@ export default function Bought() {
   const [filter, setFilter] = useState({
     startDate: "",
     endDate: "",
+    detail: "",
   });
 
   // Edit modal state
@@ -14,17 +17,21 @@ export default function Bought() {
   const [editingTransaction, setEditingTransaction] = useState<any>(null);
   const [editRate, setEditRate] = useState("");
   const [editTotalAmount, setEditTotalAmount] = useState("");
+  const [editDetails, setEditDetails] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadTransactions();
   }, []);
 
-  const loadTransactions = async () => {
+  const loadTransactions = async (operation?: "filter" | "clear") => {
     try {
-      const params: any = { type: "BUY" };
+      let params: any = { type: "BUY" };
       if (filter.startDate) params.startDate = filter.startDate;
       if (filter.endDate) params.endDate = filter.endDate;
+      if (filter.detail) params.details = filter.detail;
+
+      params = operation === "clear" ? { type: "BUY" } : params;
 
       const response = await adminAPI.getTransactions(params);
       setTransactions(response.data);
@@ -41,9 +48,9 @@ export default function Bought() {
   };
 
   const clearFilter = () => {
-    setFilter({ startDate: "", endDate: "" });
+    setFilter({ startDate: "", endDate: "", detail: "" });
     setLoading(true);
-    setTimeout(() => loadTransactions(), 0);
+    loadTransactions("clear");
   };
 
   // Edit modal handlers
@@ -51,6 +58,7 @@ export default function Bought() {
     setEditingTransaction(tx);
     setEditRate(tx.rate?.toString() || "");
     setEditTotalAmount(tx.totalAmount?.toString() || "");
+    setEditDetails(tx.details || "");
     setEditModalOpen(true);
   };
 
@@ -59,6 +67,7 @@ export default function Bought() {
     setEditingTransaction(null);
     setEditRate("");
     setEditTotalAmount("");
+    setEditDetails("");
   };
 
   const handleRateChange = (newRate: string) => {
@@ -77,12 +86,11 @@ export default function Bought() {
       const response = await adminAPI.updateTransaction(editingTransaction.id, {
         rate: editRate ? Number(editRate) : undefined,
         totalAmount: editTotalAmount ? Number(editTotalAmount) : undefined,
+        details: editDetails.trim() === "" ? null : editDetails,
       });
 
       // Update local state
-      setTransactions((prev) =>
-        prev.map((tx) => (tx.id === editingTransaction.id ? response.data.transaction : tx))
-      );
+      setTransactions((prev) => prev.map((tx) => (tx.id === editingTransaction.id ? response.data.transaction : tx)));
 
       closeEditModal();
     } catch (err) {
@@ -96,6 +104,100 @@ export default function Bought() {
   // Calculate totals
   const totalAmount = transactions.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
   const totalValue = transactions.reduce((sum, tx) => sum + Number(tx.totalAmount || 0), 0);
+
+  const formatIndianNumber = (num: number): string => {
+    const numStr = Math.round(num).toString();
+    if (numStr.length <= 3) return numStr;
+
+    const lastThree = numStr.slice(-3);
+    const remaining = numStr.slice(0, -3);
+    return remaining.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + "," + lastThree;
+  };
+
+  const formatMoneyPdf = (value: any) => {
+    const n = Number(value || 0);
+    const fixed = n.toFixed(2);
+    const [intPart, decPart] = fixed.split(".");
+    return "Rs." + formatIndianNumber(Number(intPart)) + "." + decPart;
+  };
+
+  const formatDatePdf = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  const downloadPdf = () => {
+    if (transactions.length === 0) return;
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("Evergreen Foods", pageWidth / 2, 18, { align: "center" });
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text("Bought (Purchase) Transactions", pageWidth / 2, 26, { align: "center" });
+
+    const periodText =
+      filter.startDate || filter.endDate ? "Period: " + (filter.startDate || "Start") + " to " + (filter.endDate || "Present") : "Report Generated: " + new Date().toLocaleDateString("en-IN");
+    const detailsText = filter.detail ? 'Details filter: "' + filter.detail + '"' : "";
+
+    doc.setFontSize(10);
+    doc.text(periodText, 14, 36);
+    if (detailsText) doc.text(detailsText, 14, 42);
+
+    const headers = ["Date", "Driver", "Customer", "Qty", "Unit", "Rate", "Total", "Details"];
+    const rows = transactions.map((tx) => [
+      formatDatePdf(tx.date),
+      tx.driver?.name || "-",
+      tx.customer?.name || "-",
+      Number(tx.amount || 0).toFixed(2),
+      tx.unit || "-",
+      tx.rate ? formatMoneyPdf(tx.rate) : "-",
+      tx.totalAmount ? formatMoneyPdf(tx.totalAmount) : "-",
+      (tx.details ? String(tx.details).replaceAll("₹", "Rs.") : "-") as string,
+    ]);
+
+    autoTable(doc, {
+      head: [headers],
+      body: rows,
+      startY: detailsText ? 48 : 42,
+      styles: {
+        fontSize: 8.5,
+        cellPadding: 2.5,
+        overflow: "linebreak",
+        valign: "top",
+      },
+      headStyles: {
+        fillColor: [59, 130, 246],
+        textColor: 255,
+        fontStyle: "bold",
+      },
+      alternateRowStyles: {
+        fillColor: [249, 250, 251],
+      },
+      columnStyles: {
+        0: { cellWidth: 22 }, // Date
+        1: { cellWidth: 22 }, // Driver
+        2: { cellWidth: 22 }, // Customer
+        3: { cellWidth: 12 }, // Qty
+        4: { cellWidth: 12 }, // Unit
+        5: { cellWidth: 18 }, // Rate
+        6: { cellWidth: 20 }, // Total
+        7: { cellWidth: "auto" }, // Details (wrap)
+      },
+      tableWidth: "auto",
+      margin: { left: 14, right: 14 },
+    });
+
+    const fileName = "bought_transactions_" + new Date().toISOString().split("T")[0] + ".pdf";
+    doc.save(fileName);
+  };
 
   if (loading) return <div style={{ padding: "40px", textAlign: "center" }}>Loading...</div>;
 
@@ -114,6 +216,38 @@ export default function Bought() {
           }}>
           {transactions.length} records
         </span>
+        <button
+          onClick={downloadPdf}
+          disabled={transactions.length === 0}
+          style={{
+            marginLeft: "auto",
+            padding: "10px 16px",
+            background: transactions.length === 0 ? "#e5e7eb" : "linear-gradient(135deg, #8b5cf6, #7c3aed)",
+            color: transactions.length === 0 ? "#9ca3af" : "white",
+            border: "none",
+            borderRadius: "10px",
+            cursor: transactions.length === 0 ? "not-allowed" : "pointer",
+            fontWeight: "700",
+            fontSize: "14px",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            boxShadow: transactions.length === 0 ? "none" : "0 2px 10px rgba(139, 92, 246, 0.3)",
+            transition: "transform 0.15s, box-shadow 0.15s",
+          }}
+          onMouseOver={(e) => {
+            if (transactions.length > 0) {
+              e.currentTarget.style.transform = "translateY(-1px)";
+              e.currentTarget.style.boxShadow = "0 4px 14px rgba(139, 92, 246, 0.4)";
+            }
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.transform = "translateY(0)";
+            e.currentTarget.style.boxShadow = transactions.length === 0 ? "none" : "0 2px 10px rgba(139, 92, 246, 0.3)";
+          }}>
+          <span style={{ fontSize: "16px" }}>📄</span>
+          Download PDF
+        </button>
       </div>
 
       {/* Summary Cards */}
@@ -189,6 +323,28 @@ export default function Bought() {
             />
           </div>
 
+          <div style={{ flex: "1.3", minWidth: "220px" }}>
+            <label style={{ display: "block", marginBottom: "8px", fontWeight: "500", fontSize: "14px", color: "#374151" }}>Search Details</label>
+            <input
+              type="text"
+              value={filter.detail}
+              onChange={(e) => setFilter({ ...filter, detail: e.target.value })}
+              placeholder='e.g. "abc"'
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                border: "1px solid #d1d5db",
+                borderRadius: "8px",
+                fontSize: "14px",
+                outline: "none",
+                transition: "border-color 0.2s",
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleFilter();
+              }}
+            />
+          </div>
+
           <button
             onClick={handleFilter}
             style={{
@@ -241,7 +397,7 @@ export default function Bought() {
             <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e5e7eb" }}>
               <th style={thStyle}>Date</th>
               <th style={thStyle}>Driver</th>
-              <th style={thStyle}>Customer</th>
+              <th style={thStyle}>Company</th>
               <th style={thStyle}>Quantity</th>
               <th style={thStyle}>Unit</th>
               <th style={thStyle}>Rate</th>
@@ -286,7 +442,7 @@ export default function Bought() {
                     <div style={{ fontWeight: "500", color: "#374151" }}>{tx.driver?.name || "-"}</div>
                   </td>
                   <td style={tdStyle}>
-                    <div style={{ fontWeight: "500", color: "#374151" }}>{tx.customer?.name || "-"}</div>
+                    <div style={{ fontWeight: "500", color: "#374151" }}>{tx?.companyName || "-"}</div>
                     {tx.customer?.phone && <div style={{ fontSize: "12px", color: "#9ca3af" }}>{tx.customer.phone}</div>}
                   </td>
                   <td style={tdStyle}>
@@ -443,9 +599,7 @@ export default function Bought() {
                 </div>
                 <div>
                   <span style={{ color: "#6b7280" }}>Date:</span>
-                  <div style={{ fontWeight: "600", color: "#374151" }}>
-                    {new Date(editingTransaction.date).toLocaleDateString("en-IN")}
-                  </div>
+                  <div style={{ fontWeight: "600", color: "#374151" }}>{new Date(editingTransaction.date).toLocaleDateString("en-IN")}</div>
                 </div>
                 <div>
                   <span style={{ color: "#6b7280" }}>Driver:</span>
@@ -520,6 +674,40 @@ export default function Bought() {
               <p style={{ margin: "8px 0 0", fontSize: "12px", color: "#6b7280" }}>
                 Auto-calculated: Rate × Quantity = ₹{editRate ? (Number(editRate) * Number(editingTransaction.amount)).toFixed(2) : "0.00"}
               </p>
+            </div>
+
+            {/* Details Input */}
+            <div style={{ marginBottom: "25px" }}>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "8px",
+                  fontWeight: "600",
+                  fontSize: "14px",
+                  color: "#374151",
+                }}>
+                Details
+              </label>
+              <textarea
+                value={editDetails}
+                onChange={(e) => setEditDetails(e.target.value)}
+                placeholder="Enter details / notes"
+                rows={3}
+                style={{
+                  width: "100%",
+                  padding: "12px 14px",
+                  border: "2px solid #e5e7eb",
+                  borderRadius: "10px",
+                  fontSize: "14px",
+                  outline: "none",
+                  transition: "border-color 0.2s",
+                  boxSizing: "border-box",
+                  fontFamily: "inherit",
+                  resize: "vertical",
+                }}
+                onFocus={(e) => (e.currentTarget.style.borderColor = "#3b82f6")}
+                onBlur={(e) => (e.currentTarget.style.borderColor = "#e5e7eb")}
+              />
             </div>
 
             {/* Action Buttons */}

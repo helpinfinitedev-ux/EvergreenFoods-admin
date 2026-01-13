@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { adminAPI } from "../api";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface DriverForm {
   name: string;
@@ -35,6 +37,14 @@ export default function Drivers() {
   const [form, setForm] = useState<DriverForm>(initialForm);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  // Edit driver modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingDriver, setEditingDriver] = useState<any>(null);
+  const [editPassword, setEditPassword] = useState("");
+  const [editBaseSalary, setEditBaseSalary] = useState("");
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editError, setEditError] = useState("");
 
   // History modal state
   const [selectedDriver, setSelectedDriver] = useState<any>(null);
@@ -110,6 +120,154 @@ export default function Drivers() {
     });
   };
 
+  // Format number with Indian style commas (no spaces)
+  const formatIndianNumber = (num: number): string => {
+    const numStr = Math.round(num).toString();
+    if (numStr.length <= 3) return numStr;
+
+    let result = "";
+    const lastThree = numStr.slice(-3);
+    const remaining = numStr.slice(0, -3);
+
+    if (remaining.length > 0) {
+      // Add commas every 2 digits for remaining part (Indian format)
+      result = remaining.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + "," + lastThree;
+    } else {
+      result = lastThree;
+    }
+    return result;
+  };
+
+  const generatePDF = () => {
+    if (!selectedDriver || transactions.length === 0) return;
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // Header
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text("Evergreen Foods", pageWidth / 2, 20, { align: "center" });
+
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "normal");
+    doc.text("Driver Transaction Report", pageWidth / 2, 30, { align: "center" });
+
+    // Driver Info
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Driver: " + selectedDriver.name, 14, 45);
+    doc.setFont("helvetica", "normal");
+    doc.text("Mobile: " + selectedDriver.mobile, 14, 52);
+    doc.text("Transaction Type: " + (historyTab === "WEIGHT_LOSS" ? "Weight Loss" : historyTab.charAt(0) + historyTab.slice(1).toLowerCase()), 14, 59);
+
+    // Date range
+    const dateRangeText = startDate || endDate ? "Period: " + (startDate || "Start") + " to " + (endDate || "Present") : "Report Generated: " + new Date().toLocaleDateString("en-IN");
+    doc.text(dateRangeText, 14, 66);
+
+    // Table data
+    let headers: string[];
+    let rows: string[][];
+    let columnStyles: { [key: number]: { cellWidth: number | "auto" | "wrap" } };
+
+    if (historyTab === "WEIGHT_LOSS") {
+      headers = ["Date", "Amount (Kg)", "Details"];
+      rows = transactions.map((txn) => [formatDate(txn.date), Number(txn.amount).toFixed(2) + " Kg", txn.details?.replaceAll("₹", "Rs.") || "-"]);
+      columnStyles = {
+        0: { cellWidth: 45 },
+        1: { cellWidth: 30 },
+        2: { cellWidth: "auto" },
+      };
+    } else if (historyTab === "SELL") {
+      headers = ["Date", "Amount (Kg)", "Rate", "Total", "Customer", "Details"];
+      rows = transactions.map((txn) => [
+        formatDate(txn.date),
+        Number(txn.amount).toFixed(2) + " Kg",
+        txn.rate ? "Rs." + Number(txn.rate).toFixed(2) : "-",
+        txn.totalAmount ? "Rs." + formatIndianNumber(Number(txn.totalAmount)) : "-",
+        txn.customer?.name || "-",
+        txn.details?.replaceAll("₹", "Rs.") || "-",
+      ]);
+      columnStyles = {
+        0: { cellWidth: 35 },
+        1: { cellWidth: 25 },
+        2: { cellWidth: 22 },
+        3: { cellWidth: 28 },
+        4: { cellWidth: 30 },
+        5: { cellWidth: 45 },
+      };
+    } else {
+      headers = ["Date", "Amount (Kg)", "Rate", "Total", "Details"];
+      rows = transactions.map(
+        (txn) =>
+          [
+            formatDate(txn.date),
+            Number(txn.amount).toFixed(2) + " Kg",
+            txn.rate ? "Rs." + Number(txn.rate).toFixed(2) : "-",
+            txn.totalAmount ? "Rs." + formatIndianNumber(Number(txn.totalAmount)) : "-",
+            txn.details?.replaceAll("₹", "Rs.") || "-",
+          ] as string[]
+      );
+      columnStyles = {
+        0: { cellWidth: 40 },
+        1: { cellWidth: 28 },
+        2: { cellWidth: 25 },
+        3: { cellWidth: 30 },
+        4: { cellWidth: "auto" },
+      };
+    }
+
+    // Generate table
+    autoTable(doc, {
+      head: [headers],
+      body: rows,
+      startY: 75,
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+        overflow: "linebreak",
+      },
+      headStyles: {
+        fillColor: [59, 130, 246],
+        textColor: 255,
+        fontStyle: "bold",
+      },
+      alternateRowStyles: {
+        fillColor: [249, 250, 251],
+      },
+      columnStyles: columnStyles,
+      tableWidth: "auto",
+      margin: { left: 14, right: 14 },
+    });
+
+    // Summary section
+    const finalY = (doc as any).lastAutoTable.finalY || 75;
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("Summary", 14, finalY + 15);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    const totalQty = transactions.reduce((sum, t) => sum + Number(t.amount), 0).toFixed(2);
+    doc.text("Total Transactions: " + transactions.length, 14, finalY + 25);
+    doc.text("Total Quantity: " + totalQty + " Kg", 14, finalY + 32);
+
+    if (historyTab !== "WEIGHT_LOSS") {
+      const totalAmount = transactions.reduce((sum, t) => sum + Number(t.totalAmount || 0), 0);
+      doc.text("Total Amount: Rs." + formatIndianNumber(totalAmount), 14, finalY + 39);
+    }
+
+    // Footer
+    const pageHeight = doc.internal.pageSize.getHeight();
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text(`Generated on ${new Date().toLocaleString("en-IN")}`, pageWidth / 2, pageHeight - 10, { align: "center" });
+
+    // Save the PDF
+    const fileName = `${selectedDriver.name.replace(/\s+/g, "_")}_${historyTab.toLowerCase()}_${new Date().toISOString().split("T")[0]}.pdf`;
+    doc.save(fileName);
+  };
+
   const toggleStatus = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === "ACTIVE" ? "BLOCKED" : "ACTIVE";
     try {
@@ -166,6 +324,75 @@ export default function Drivers() {
     setShowModal(false);
     setForm(initialForm);
     setError("");
+  };
+
+  const openEditDriverModal = (driver: any) => {
+    setEditingDriver(driver);
+    setEditPassword("");
+    setEditBaseSalary(driver?.baseSalary?.toString?.() || String(driver?.baseSalary || 0));
+    setEditError("");
+    setShowEditModal(true);
+  };
+
+  const closeEditDriverModal = () => {
+    setShowEditModal(false);
+    setEditingDriver(null);
+    setEditPassword("");
+    setEditBaseSalary("");
+    setEditError("");
+  };
+
+  const handleUpdateDriver = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDriver) return;
+
+    const payload: { password?: string; baseSalary?: number } = {};
+
+    const salaryStr = editBaseSalary.trim();
+    if (salaryStr !== "") {
+      const salaryNum = Number(salaryStr);
+      if (Number.isNaN(salaryNum) || salaryNum < 0) {
+        setEditError("Please enter a valid salary");
+        return;
+      }
+      payload.baseSalary = salaryNum;
+    }
+
+    const pwd = editPassword.trim();
+    if (pwd !== "") {
+      if (pwd.length < 4) {
+        setEditError("Password must be at least 4 characters");
+        return;
+      }
+      payload.password = pwd;
+    }
+
+    if (Object.keys(payload).length === 0) {
+      setEditError("Nothing to update");
+      return;
+    }
+
+    setEditSubmitting(true);
+    try {
+      await adminAPI.updateDriver(editingDriver.id, payload);
+      closeEditDriverModal();
+      loadDrivers();
+    } catch (err: any) {
+      setEditError(err.response?.data?.error || "Failed to update driver");
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
+  const handleDeleteDriver = async (driver: any) => {
+    const ok = window.confirm(`Delete driver "${driver.name}"?\n\nThis cannot be undone.`);
+    if (!ok) return;
+    try {
+      await adminAPI.deleteDriver(driver.id);
+      loadDrivers();
+    } catch (err: any) {
+      alert(err.response?.data?.error || "Failed to delete driver");
+    }
   };
 
   if (loading) return <div style={{ padding: "40px", textAlign: "center" }}>Loading...</div>;
@@ -270,22 +497,59 @@ export default function Drivers() {
                 </td>
                 <td style={tdStyle}>₹{driver.baseSalary || 0}</td>
                 <td style={tdStyle}>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleStatus(driver.id, driver.status);
-                    }}
-                    style={{
-                      padding: "6px 16px",
-                      background: driver.status === "ACTIVE" ? "#ef4444" : "#10b981",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                      fontSize: "14px",
-                    }}>
-                    {driver.status === "ACTIVE" ? "Block" : "Activate"}
-                  </button>
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openEditDriverModal(driver);
+                      }}
+                      style={{
+                        padding: "6px 12px",
+                        background: "#f59e0b",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                        fontSize: "13px",
+                        fontWeight: "600",
+                      }}>
+                      ✏️ Edit
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleStatus(driver.id, driver.status);
+                      }}
+                      style={{
+                        padding: "6px 12px",
+                        background: driver.status === "ACTIVE" ? "#ef4444" : "#10b981",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                        fontSize: "13px",
+                        fontWeight: "600",
+                      }}>
+                      {driver.status === "ACTIVE" ? "Block" : "Activate"}
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteDriver(driver);
+                      }}
+                      style={{
+                        padding: "6px 12px",
+                        background: "#111827",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                        fontSize: "13px",
+                        fontWeight: "600",
+                      }}>
+                      🗑️ Delete
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -417,6 +681,137 @@ export default function Drivers() {
         </div>
       )}
 
+      {/* Edit Driver Modal */}
+      {showEditModal && editingDriver && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={closeEditDriverModal}>
+          <div
+            style={{
+              background: "white",
+              borderRadius: "12px",
+              padding: "32px",
+              width: "100%",
+              maxWidth: "440px",
+              boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
+            }}
+            onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: "22px", fontWeight: "700", color: "#111827" }}>Edit Driver</h2>
+                <div style={{ marginTop: "4px", fontSize: "13px", color: "#6b7280" }}>
+                  {editingDriver.name} • {editingDriver.mobile}
+                </div>
+              </div>
+              <button
+                onClick={closeEditDriverModal}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "24px",
+                  cursor: "pointer",
+                  color: "#9ca3af",
+                  padding: "4px",
+                  lineHeight: 1,
+                }}>
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateDriver}>
+              <div style={{ marginBottom: "20px" }}>
+                <label style={labelStyle}>New Password</label>
+                <input
+                  type="password"
+                  value={editPassword}
+                  onChange={(e) => {
+                    setEditPassword(e.target.value);
+                    setEditError("");
+                  }}
+                  placeholder="Leave blank to keep unchanged"
+                  style={inputStyle}
+                />
+              </div>
+
+              <div style={{ marginBottom: "24px" }}>
+                <label style={labelStyle}>Base Salary (₹)</label>
+                <input
+                  type="number"
+                  value={editBaseSalary}
+                  onChange={(e) => {
+                    setEditBaseSalary(e.target.value);
+                    setEditError("");
+                  }}
+                  placeholder="Enter monthly salary"
+                  style={inputStyle}
+                />
+              </div>
+
+              {editError && (
+                <div
+                  style={{
+                    background: "#fef2f2",
+                    border: "1px solid #fecaca",
+                    color: "#dc2626",
+                    padding: "12px 16px",
+                    borderRadius: "8px",
+                    marginBottom: "20px",
+                    fontSize: "14px",
+                  }}>
+                  {editError}
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: "12px" }}>
+                <button
+                  type="button"
+                  onClick={closeEditDriverModal}
+                  style={{
+                    flex: 1,
+                    padding: "12px 20px",
+                    background: "#f3f4f6",
+                    color: "#374151",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontSize: "15px",
+                    fontWeight: "500",
+                  }}>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editSubmitting}
+                  style={{
+                    flex: 1,
+                    padding: "12px 20px",
+                    background: editSubmitting ? "#9ca3af" : "linear-gradient(135deg, #f59e0b, #d97706)",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: editSubmitting ? "not-allowed" : "pointer",
+                    fontSize: "15px",
+                    fontWeight: "600",
+                  }}>
+                  {editSubmitting ? "Updating..." : "Update"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Driver History Modal */}
       {showHistoryModal && selectedDriver && (
         <div
@@ -456,23 +851,56 @@ export default function Drivers() {
                   <h2 style={{ margin: 0, fontSize: "22px", fontWeight: "700", color: "#111827" }}>{selectedDriver.name}'s History</h2>
                   <p style={{ margin: "4px 0 0 0", fontSize: "14px", color: "#6b7280" }}>View transactions and activity</p>
                 </div>
-                <button
-                  onClick={closeHistoryModal}
-                  style={{
-                    background: "#f3f4f6",
-                    border: "none",
-                    fontSize: "20px",
-                    cursor: "pointer",
-                    color: "#6b7280",
-                    padding: "8px 12px",
-                    borderRadius: "8px",
-                    lineHeight: 1,
-                    transition: "background 0.15s",
-                  }}
-                  onMouseOver={(e) => (e.currentTarget.style.background = "#e5e7eb")}
-                  onMouseOut={(e) => (e.currentTarget.style.background = "#f3f4f6")}>
-                  ✕
-                </button>
+                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                  <button
+                    onClick={generatePDF}
+                    disabled={transactions.length === 0 || historyLoading}
+                    style={{
+                      background: transactions.length === 0 || historyLoading ? "#e5e7eb" : "linear-gradient(135deg, #8b5cf6, #7c3aed)",
+                      border: "none",
+                      fontSize: "14px",
+                      cursor: transactions.length === 0 || historyLoading ? "not-allowed" : "pointer",
+                      color: transactions.length === 0 || historyLoading ? "#9ca3af" : "white",
+                      padding: "10px 16px",
+                      borderRadius: "8px",
+                      fontWeight: "600",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      transition: "all 0.15s",
+                      boxShadow: transactions.length === 0 || historyLoading ? "none" : "0 2px 8px rgba(139, 92, 246, 0.3)",
+                    }}
+                    onMouseOver={(e) => {
+                      if (transactions.length > 0 && !historyLoading) {
+                        e.currentTarget.style.transform = "translateY(-1px)";
+                        e.currentTarget.style.boxShadow = "0 4px 12px rgba(139, 92, 246, 0.4)";
+                      }
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.transform = "translateY(0)";
+                      e.currentTarget.style.boxShadow = transactions.length > 0 && !historyLoading ? "0 2px 8px rgba(139, 92, 246, 0.3)" : "none";
+                    }}>
+                    <span style={{ fontSize: "16px" }}>📄</span>
+                    Download PDF
+                  </button>
+                  <button
+                    onClick={closeHistoryModal}
+                    style={{
+                      background: "#f3f4f6",
+                      border: "none",
+                      fontSize: "20px",
+                      cursor: "pointer",
+                      color: "#6b7280",
+                      padding: "8px 12px",
+                      borderRadius: "8px",
+                      lineHeight: 1,
+                      transition: "background 0.15s",
+                    }}
+                    onMouseOver={(e) => (e.currentTarget.style.background = "#e5e7eb")}
+                    onMouseOut={(e) => (e.currentTarget.style.background = "#f3f4f6")}>
+                    ✕
+                  </button>
+                </div>
               </div>
 
               {/* Tabs */}

@@ -22,10 +22,16 @@ export const adminAPI = {
   getDashboard: () => api.get("/admin/dashboard"),
   getDrivers: () => api.get("/admin/drivers"),
   createDriver: (data: { name: string; mobile: string; password: string; baseSalary?: number }) => api.post("/admin/drivers", data),
+  updateDriver: (id: string, data: { password?: string; baseSalary?: number }) => api.put(`/admin/drivers/${id}`, data),
+  deleteDriver: (id: string) => api.delete(`/admin/drivers/${id}`),
   updateDriverStatus: (id: string, status: string) => api.put(`/admin/drivers/${id}/status`, { status }),
+  getCashToBank: (params?: { page?: number; startDate?: string; endDate?: string }) => api.get("/admin/cash-to-bank", { params }),
+  createCashToBank: (data: { bankName: string; amount: number; date: string }) => api.post("/admin/cash-to-bank", data),
+  updateCashToBank: (id: string, data: { bankName?: string; amount?: number }) => api.put(`/admin/cash-to-bank/${id}`, data),
+  deleteCashToBank: (id: string) => api.delete(`/admin/cash-to-bank/${id}`),
   getTransactions: (params?: any) => api.get("/admin/transactions", { params }),
   getDriverHistory: (driverId: string, params?: { type?: string; startDate?: string; endDate?: string }) => api.get("/admin/transactions", { params: { driverId, ...params } }),
-  updateTransaction: (id: string, data: { rate?: number; totalAmount?: number }) => api.put(`/admin/transactions/${id}`, data),
+  updateTransaction: (id: string, data: { rate?: number; totalAmount?: number; details?: string | null }) => api.put(`/admin/transactions/${id}`, data),
   createFinancialNote: (data: any) => api.post("/admin/financial/note", data),
 };
 

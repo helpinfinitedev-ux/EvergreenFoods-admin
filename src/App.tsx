@@ -9,6 +9,7 @@ import Transactions from "./pages/Transactions";
 import Bought from "./pages/Bought";
 import Sold from "./pages/Sold";
 import Expenses from "./pages/Expenses";
+import MoneyLedger from "./pages/MoneyLedger";
 
 function App() {
   return (
@@ -84,9 +85,9 @@ function ProtectedLayout() {
           <NavItem active={location.pathname === "/expenses"} onClick={() => navigate("/expenses")}>
             💸 Expenses
           </NavItem>
-        </nav>
-
-        <div style={{ marginTop: "auto" }}>
+          <NavItem active={location.pathname === "/money-ledger"} onClick={() => navigate("/money-ledger")}>
+            💳 Money Ledger
+          </NavItem>
           <button
             onClick={handleLogout}
             style={{
@@ -98,10 +99,13 @@ function ProtectedLayout() {
               borderRadius: "6px",
               cursor: "pointer",
               fontWeight: "500",
+              marginTop: "100px",
             }}>
             Logout
           </button>
-        </div>
+        </nav>
+
+        <div style={{ marginTop: "auto" }}></div>
       </div>
 
       {/* Main Content */}
@@ -116,6 +120,7 @@ function ProtectedLayout() {
           <Route path="/bought" element={<Bought />} />
           <Route path="/sold" element={<Sold />} />
           <Route path="/expenses" element={<Expenses />} />
+          <Route path="/money-ledger" element={<MoneyLedger />} />
         </Routes>
       </div>
     </div>
