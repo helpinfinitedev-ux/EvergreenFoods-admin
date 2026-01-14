@@ -16,6 +16,7 @@ api.interceptors.request.use((config) => {
 
 export const authAPI = {
   login: (mobile: string, password: string) => api.post("/auth/login", { mobile, password }),
+  verifyOtp: (mobile: string, otp: string) => api.post("/auth/verify-otp", { mobile, otp }),
 };
 
 export const adminAPI = {
