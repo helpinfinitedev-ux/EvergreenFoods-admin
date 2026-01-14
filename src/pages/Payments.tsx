@@ -1,23 +1,15 @@
 import { useEffect, useState } from "react";
-import { bankAPI, expenseAPI } from "../api";
+import { bankAPI, paymentAPI } from "../api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-interface Expense {
+interface Payment {
   id: string;
-  type: "CASH" | "BANK";
   amount: number;
-  description: string;
-  category: string | null;
+  companyName?: string | null;
+  description?: string | null;
   date: string;
   bankId?: string | null;
-}
-
-interface ExpenseSummary {
-  cashTotal: number;
-  bankTotal: number;
-  total: number;
-  count: number;
 }
 
 interface Bank {
@@ -27,62 +19,41 @@ interface Bank {
   balance: number;
 }
 
-export default function Expenses() {
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [summary, setSummary] = useState<ExpenseSummary | null>(null);
+export default function Payments() {
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [showModal, setShowModal] = useState(false);
-  const [filterType, setFilterType] = useState<string>("");
   const [filterDates, setFilterDates] = useState({ startDate: "", endDate: "" });
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   // Form state
-  const [formType, setFormType] = useState<"CASH" | "BANK">("CASH");
+  const [formMethod, setFormMethod] = useState<"CASH" | "BANK">("CASH");
   const [formAmount, setFormAmount] = useState("");
+  const [formCompanyName, setFormCompanyName] = useState("");
   const [formDescription, setFormDescription] = useState("");
-  const [formCategory, setFormCategory] = useState("");
   const [formDate, setFormDate] = useState(new Date().toISOString().split("T")[0]);
   const [formBankId, setFormBankId] = useState("");
-
-  useEffect(() => {
-    loadData();
-  }, []);
 
   useEffect(() => {
     loadBanks();
   }, []);
 
   useEffect(() => {
-    if (formType === "BANK" && !formBankId) {
+    loadPayments(page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
+
+  useEffect(() => {
+    if (formMethod === "BANK" && !formBankId) {
       setFormBankId(banks[0]?.id || "");
     }
-    if (formType === "CASH" && formBankId) {
+    if (formMethod === "CASH" && formBankId) {
       setFormBankId("");
     }
-  }, [formType, banks, formBankId]);
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const params: any = {};
-      if (filterType) params.type = filterType;
-      if (filterDates.startDate) params.startDate = filterDates.startDate;
-      if (filterDates.endDate) params.endDate = filterDates.endDate;
-
-      const [expensesRes, summaryRes] = await Promise.all([
-        expenseAPI.getAll(params),
-        expenseAPI.getSummary(params),
-      ]);
-
-      setExpenses(expensesRes.data);
-      setSummary(summaryRes.data);
-    } catch (err) {
-      console.error("Failed to load expenses", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [formMethod, banks, formBankId]);
 
   const loadBanks = async () => {
     try {
@@ -93,66 +64,77 @@ export default function Expenses() {
     }
   };
 
+  const loadPayments = async (nextPage: number) => {
+    try {
+      setLoading(true);
+      const res = await paymentAPI.getAll({
+        page: nextPage,
+        startDate: filterDates.startDate || undefined,
+        endDate: filterDates.endDate || undefined,
+      });
+      setPayments(res.data?.rows || []);
+      setPage(res.data?.page || nextPage);
+      setTotalPages(res.data?.totalPages || 1);
+    } catch (err) {
+      console.error("Failed to load payments", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setFormMethod("CASH");
+    setFormAmount("");
+    setFormCompanyName("");
+    setFormDescription("");
+    setFormDate(new Date().toISOString().split("T")[0]);
+    setFormBankId("");
+  };
+
   const handleSubmit = async () => {
-    if (!formAmount || !formDescription) {
-      alert("Please fill amount and description");
+    if (!formAmount) {
+      alert("Please enter amount");
       return;
     }
-
-    if (formType === "BANK" && !formBankId) {
+    const amt = Number(formAmount);
+    if (Number.isNaN(amt) || amt <= 0) {
+      alert("Please enter a valid amount");
+      return;
+    }
+    if (formMethod === "BANK" && !formBankId) {
       alert("Please select a bank");
       return;
     }
 
     try {
-      await expenseAPI.create({
-        type: formType,
-        amount: parseFloat(formAmount),
-        description: formDescription,
-        category: formCategory || undefined,
+      await paymentAPI.create({
+        amount: amt,
+        companyName: formCompanyName || undefined,
+        description: formDescription || undefined,
         date: formDate,
-        bankId: formType === "BANK" ? formBankId : undefined,
+        bankId: formMethod === "BANK" ? formBankId : undefined,
       });
-
-      alert("Expense added successfully");
       setShowModal(false);
       resetForm();
-      loadData();
+      loadPayments(page);
     } catch (err) {
-      alert("Failed to add expense");
+      alert("Failed to add payment");
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this expense?")) return;
-
-    try {
-      await expenseAPI.delete(id);
-      loadData();
-    } catch (err) {
-      alert("Failed to delete expense");
-    }
+  const getBankLabel = (bankId?: string | null) => {
+    if (!bankId) return "Cash";
+    const bank = banks.find((b) => b.id === bankId);
+    return bank ? `${bank.name} (${bank.label})` : "Bank";
   };
-
-  const resetForm = () => {
-    setFormType("CASH");
-    setFormAmount("");
-    setFormDescription("");
-    setFormCategory("");
-    setFormDate(new Date().toISOString().split("T")[0]);
-    setFormBankId("");
-  };
-
-  const categories = ["EMI", "Fuel", "Salary", "Labor", "Other"];
 
   const handleFilter = () => {
-    loadData();
+    loadPayments(1);
   };
 
   const clearFilter = () => {
-    setFilterType("");
     setFilterDates({ startDate: "", endDate: "" });
-    setTimeout(() => loadData(), 0);
+    setTimeout(() => loadPayments(1), 0);
   };
 
   const formatDatePdf = (dateString: string) => {
@@ -169,7 +151,7 @@ export default function Expenses() {
   };
 
   const downloadPdf = () => {
-    if (downloadingPdf || expenses.length === 0) return;
+    if (downloadingPdf || payments.length === 0) return;
     setDownloadingPdf(true);
     try {
       const doc = new jsPDF();
@@ -181,31 +163,23 @@ export default function Expenses() {
 
       doc.setFontSize(12);
       doc.setFont("helvetica", "normal");
-      doc.text("Expenses Report", pageWidth / 2, 26, { align: "center" });
+      doc.text("Payments To Companies", pageWidth / 2, 26, { align: "center" });
 
       const periodText =
         filterDates.startDate || filterDates.endDate
           ? "Period: " + (filterDates.startDate || "Start") + " to " + (filterDates.endDate || "Present")
           : "Report Generated: " + new Date().toLocaleDateString("en-IN");
-      const typeText = filterType ? "Type: " + filterType : "";
 
       doc.setFontSize(10);
       doc.text(periodText, 14, 36);
-      if (typeText) doc.text(typeText, 14, 42);
 
-      const headers = ["Date", "Type", "Category", "Description", "Amount"];
-      const rows = expenses.map((exp) => [
-        formatDatePdf(exp.date),
-        exp.type,
-        exp.category || "-",
-        exp.description || "-",
-        formatMoneyPdf(exp.amount),
-      ]);
+      const headers = ["Date", "Method", "Company", "Description", "Amount"];
+      const rows = payments.map((p) => [formatDatePdf(p.date), getBankLabel(p.bankId), p.companyName || "-", p.description || "-", formatMoneyPdf(p.amount)]);
 
       autoTable(doc, {
         head: [headers],
         body: rows,
-        startY: typeText ? 48 : 42,
+        startY: 42,
         styles: {
           fontSize: 8.5,
           cellPadding: 2.5,
@@ -222,16 +196,16 @@ export default function Expenses() {
         },
         columnStyles: {
           0: { cellWidth: 22 },
-          1: { cellWidth: 16 },
-          2: { cellWidth: 22 },
+          1: { cellWidth: 22 },
+          2: { cellWidth: 26 },
           3: { cellWidth: "auto" },
-          4: { cellWidth: 20 },
+          4: { cellWidth: 22 },
         },
         tableWidth: "auto",
         margin: { left: 14, right: 14 },
       });
 
-      const fileName = "expenses_" + new Date().toISOString().split("T")[0] + ".pdf";
+      const fileName = "payments_to_companies_" + new Date().toISOString().split("T")[0] + ".pdf";
       doc.save(fileName);
     } catch (err) {
       console.error("Failed to generate PDF", err);
@@ -241,27 +215,28 @@ export default function Expenses() {
     }
   };
 
+  if (loading) return <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>Loading...</div>;
+
   return (
     <div style={{ padding: "30px" }}>
-      {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "30px" }}>
-        <h1 style={{ fontSize: "28px", fontWeight: "700" }}>Expenses</h1>
+        <h1 style={{ fontSize: "28px", fontWeight: "700" }}>Payments To Companies</h1>
         <div style={{ display: "flex", gap: "10px" }}>
           <button
             onClick={downloadPdf}
-            disabled={downloadingPdf || expenses.length === 0}
+            disabled={downloadingPdf || payments.length === 0}
             style={{
               padding: "12px 16px",
-              background: downloadingPdf || expenses.length === 0 ? "#e5e7eb" : "linear-gradient(135deg, #8b5cf6, #7c3aed)",
-              color: downloadingPdf || expenses.length === 0 ? "#9ca3af" : "white",
+              background: downloadingPdf || payments.length === 0 ? "#e5e7eb" : "linear-gradient(135deg, #8b5cf6, #7c3aed)",
+              color: downloadingPdf || payments.length === 0 ? "#9ca3af" : "white",
               border: "none",
               borderRadius: "10px",
-              cursor: downloadingPdf || expenses.length === 0 ? "not-allowed" : "pointer",
+              cursor: downloadingPdf || payments.length === 0 ? "not-allowed" : "pointer",
               fontWeight: "700",
               display: "flex",
               alignItems: "center",
               gap: "8px",
-              boxShadow: downloadingPdf || expenses.length === 0 ? "none" : "0 2px 10px rgba(139, 92, 246, 0.3)",
+              boxShadow: downloadingPdf || payments.length === 0 ? "none" : "0 2px 10px rgba(139, 92, 246, 0.3)",
             }}>
             <span style={{ fontSize: "16px" }}>📄</span>
             {downloadingPdf ? "Preparing..." : "Download PDF"}
@@ -270,7 +245,7 @@ export default function Expenses() {
             onClick={() => setShowModal(true)}
             style={{
               padding: "12px 24px",
-              background: "#667eea",
+              background: "#10b981",
               color: "white",
               border: "none",
               borderRadius: "8px",
@@ -278,36 +253,12 @@ export default function Expenses() {
               fontWeight: "600",
               fontSize: "14px",
             }}>
-            + Add Expense
+            + Add Payment
           </button>
         </div>
       </div>
 
-      {/* Summary Cards */}
-      {summary && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px", marginBottom: "30px" }}>
-          <div style={summaryCardStyle}>
-            <div style={{ color: "#6b7280", fontSize: "14px", marginBottom: "8px" }}>Cash Expenses</div>
-            <div style={{ fontSize: "28px", fontWeight: "700", color: "#ef4444" }}>
-              ₹{summary.cashTotal.toLocaleString()}
-            </div>
-          </div>
-          <div style={summaryCardStyle}>
-            <div style={{ color: "#6b7280", fontSize: "14px", marginBottom: "8px" }}>Bank Expenses</div>
-            <div style={{ fontSize: "28px", fontWeight: "700", color: "#3b82f6" }}>
-              ₹{summary.bankTotal.toLocaleString()}
-            </div>
-          </div>
-          <div style={summaryCardStyle}>
-            <div style={{ color: "#6b7280", fontSize: "14px", marginBottom: "8px" }}>Total Expenses</div>
-            <div style={{ fontSize: "28px", fontWeight: "700", color: "#111827" }}>
-              ₹{summary.total.toLocaleString()}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Filter */}
+      {/* Filters */}
       <div
         style={{
           background: "white",
@@ -320,32 +271,11 @@ export default function Expenses() {
         <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "end" }}>
           <div style={{ flex: "1", minWidth: "160px" }}>
             <label style={{ display: "block", marginBottom: "8px", fontWeight: "700", fontSize: "13px", color: "#374151" }}>Start Date</label>
-            <input
-              type="date"
-              value={filterDates.startDate}
-              onChange={(e) => setFilterDates({ ...filterDates, startDate: e.target.value })}
-              style={filterInputStyle}
-            />
+            <input type="date" value={filterDates.startDate} onChange={(e) => setFilterDates({ ...filterDates, startDate: e.target.value })} style={filterInputStyle} />
           </div>
           <div style={{ flex: "1", minWidth: "160px" }}>
             <label style={{ display: "block", marginBottom: "8px", fontWeight: "700", fontSize: "13px", color: "#374151" }}>End Date</label>
-            <input
-              type="date"
-              value={filterDates.endDate}
-              onChange={(e) => setFilterDates({ ...filterDates, endDate: e.target.value })}
-              style={filterInputStyle}
-            />
-          </div>
-          <div style={{ minWidth: "150px" }}>
-            <label style={{ display: "block", marginBottom: "8px", fontWeight: "700", fontSize: "13px", color: "#374151" }}>Type</label>
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              style={filterInputStyle}>
-              <option value="">All Types</option>
-              <option value="CASH">Cash</option>
-              <option value="BANK">Bank</option>
-            </select>
+            <input type="date" value={filterDates.endDate} onChange={(e) => setFilterDates({ ...filterDates, endDate: e.target.value })} style={filterInputStyle} />
           </div>
           <button onClick={handleFilter} style={applyBtnStyle}>
             Apply Filter
@@ -356,43 +286,29 @@ export default function Expenses() {
         </div>
       </div>
 
-      {/* Expenses Table */}
-      <div
-        style={{
-          background: "white",
-          borderRadius: "8px",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-          overflow: "hidden",
-        }}>
+      <div style={{ background: "white", borderRadius: "8px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}>
               <th style={thStyle}>Date</th>
-              <th style={thStyle}>Type</th>
-              <th style={thStyle}>Category</th>
+              <th style={thStyle}>Method</th>
+              <th style={thStyle}>Company</th>
               <th style={thStyle}>Description</th>
               <th style={thStyle}>Amount</th>
-              <th style={thStyle}>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {loading ? (
+            {payments.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
-                  Loading...
-                </td>
-              </tr>
-            ) : expenses.length === 0 ? (
-              <tr>
-                <td colSpan={6} style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
-                  No expenses found
+                <td colSpan={5} style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
+                  No payments found
                 </td>
               </tr>
             ) : (
-              expenses.map((expense) => (
-                <tr key={expense.id} style={{ borderBottom: "1px solid #e5e7eb" }}>
+              payments.map((payment) => (
+                <tr key={payment.id} style={{ borderBottom: "1px solid #e5e7eb" }}>
                   <td style={tdStyle}>
-                    {new Date(expense.date).toLocaleDateString("en-IN", {
+                    {new Date(payment.date).toLocaleDateString("en-IN", {
                       day: "numeric",
                       month: "short",
                       year: "numeric",
@@ -405,41 +321,62 @@ export default function Expenses() {
                         borderRadius: "20px",
                         fontSize: "12px",
                         fontWeight: "600",
-                        background: expense.type === "CASH" ? "#fef3c7" : "#dbeafe",
-                        color: expense.type === "CASH" ? "#92400e" : "#1e40af",
+                        background: payment.bankId ? "#dbeafe" : "#fef3c7",
+                        color: payment.bankId ? "#1e40af" : "#92400e",
                       }}>
-                      {expense.type}
+                      {getBankLabel(payment.bankId)}
                     </span>
                   </td>
-                  <td style={tdStyle}>{expense.category || "-"}</td>
-                  <td style={tdStyle}>{expense.description}</td>
-                  <td style={{ ...tdStyle, fontWeight: "600", color: "#dc2626" }}>
-                    ₹{Number(expense.amount).toLocaleString()}
-                  </td>
-                  <td style={tdStyle}>
-                    <button
-                      onClick={() => handleDelete(expense.id)}
-                      style={{
-                        padding: "6px 12px",
-                        background: "#fee2e2",
-                        color: "#dc2626",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                        fontSize: "12px",
-                        fontWeight: "500",
-                      }}>
-                      Delete
-                    </button>
-                  </td>
+                  <td style={tdStyle}>{payment.companyName || "-"}</td>
+                  <td style={tdStyle}>{payment.description || "-"}</td>
+                  <td style={{ ...tdStyle, fontWeight: "600", color: "#059669" }}>₹{Number(payment.amount).toLocaleString()}</td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
+
+        {/* Pagination */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", background: "#f9fafb", borderTop: "1px solid #e5e7eb" }}>
+          <div style={{ fontSize: "13px", color: "#6b7280", fontWeight: "700" }}>
+            Page {page} of {totalPages}
+          </div>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button
+              onClick={() => loadPayments(page - 1)}
+              disabled={page <= 1}
+              style={{
+                padding: "8px 12px",
+                background: page <= 1 ? "#e5e7eb" : "white",
+                color: page <= 1 ? "#9ca3af" : "#374151",
+                border: "1px solid #d1d5db",
+                borderRadius: "8px",
+                cursor: page <= 1 ? "not-allowed" : "pointer",
+                fontWeight: "800",
+                fontSize: "13px",
+              }}>
+              ← Prev
+            </button>
+            <button
+              onClick={() => loadPayments(page + 1)}
+              disabled={page >= totalPages}
+              style={{
+                padding: "8px 12px",
+                background: page >= totalPages ? "#e5e7eb" : "white",
+                color: page >= totalPages ? "#9ca3af" : "#374151",
+                border: "1px solid #d1d5db",
+                borderRadius: "8px",
+                cursor: page >= totalPages ? "not-allowed" : "pointer",
+                fontWeight: "800",
+                fontSize: "13px",
+              }}>
+              Next →
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Add Expense Modal */}
+      {/* Add Payment Modal */}
       {showModal && (
         <div
           style={{
@@ -460,47 +397,46 @@ export default function Expenses() {
               padding: "30px",
               borderRadius: "12px",
               width: "100%",
-              maxWidth: "500px",
+              maxWidth: "520px",
             }}>
-            <h2 style={{ marginBottom: "24px", fontSize: "20px", fontWeight: "700" }}>Add New Expense</h2>
+            <h2 style={{ marginBottom: "24px", fontSize: "20px", fontWeight: "700" }}>Add Payment</h2>
 
-            {/* Expense Type */}
+            {/* Method */}
             <div style={{ marginBottom: "20px" }}>
-              <label style={labelStyle}>Expense Type *</label>
+              <label style={labelStyle}>Payment Method *</label>
               <div style={{ display: "flex", gap: "12px" }}>
                 <button
-                  onClick={() => setFormType("CASH")}
+                  onClick={() => setFormMethod("CASH")}
                   style={{
                     flex: 1,
                     padding: "14px",
-                    border: formType === "CASH" ? "2px solid #ef4444" : "1px solid #ddd",
+                    border: formMethod === "CASH" ? "2px solid #f59e0b" : "1px solid #ddd",
                     borderRadius: "8px",
-                    background: formType === "CASH" ? "#fef2f2" : "white",
+                    background: formMethod === "CASH" ? "#fef3c7" : "white",
                     cursor: "pointer",
                     fontWeight: "600",
-                    color: formType === "CASH" ? "#dc2626" : "#374151",
+                    color: formMethod === "CASH" ? "#92400e" : "#374151",
                   }}>
                   💵 Cash
                 </button>
                 <button
-                  onClick={() => setFormType("BANK")}
+                  onClick={() => setFormMethod("BANK")}
                   style={{
                     flex: 1,
                     padding: "14px",
-                    border: formType === "BANK" ? "2px solid #3b82f6" : "1px solid #ddd",
+                    border: formMethod === "BANK" ? "2px solid #3b82f6" : "1px solid #ddd",
                     borderRadius: "8px",
-                    background: formType === "BANK" ? "#eff6ff" : "white",
+                    background: formMethod === "BANK" ? "#eff6ff" : "white",
                     cursor: "pointer",
                     fontWeight: "600",
-                    color: formType === "BANK" ? "#2563eb" : "#374151",
+                    color: formMethod === "BANK" ? "#2563eb" : "#374151",
                   }}>
                   🏦 Bank
                 </button>
               </div>
             </div>
 
-            {/* Bank */}
-            {formType === "BANK" && (
+            {formMethod === "BANK" && (
               <div style={{ marginBottom: "20px" }}>
                 <label style={labelStyle}>Bank *</label>
                 <select value={formBankId} onChange={(e) => setFormBankId(e.target.value)} style={inputStyle}>
@@ -520,38 +456,19 @@ export default function Expenses() {
             {/* Amount */}
             <div style={{ marginBottom: "20px" }}>
               <label style={labelStyle}>Amount (₹) *</label>
-              <input
-                type="number"
-                value={formAmount}
-                onChange={(e) => setFormAmount(e.target.value)}
-                placeholder="Enter amount"
-                style={inputStyle}
-              />
+              <input type="number" value={formAmount} onChange={(e) => setFormAmount(e.target.value)} placeholder="Enter amount" style={inputStyle} />
+            </div>
+
+            {/* Company */}
+            <div style={{ marginBottom: "20px" }}>
+              <label style={labelStyle}>Company Name</label>
+              <input type="text" value={formCompanyName} onChange={(e) => setFormCompanyName(e.target.value)} placeholder="Optional" style={inputStyle} />
             </div>
 
             {/* Description */}
             <div style={{ marginBottom: "20px" }}>
-              <label style={labelStyle}>Description *</label>
-              <textarea
-                value={formDescription}
-                onChange={(e) => setFormDescription(e.target.value)}
-                placeholder="What was this expense for?"
-                rows={3}
-                style={{ ...inputStyle, resize: "none", fontFamily: "inherit" }}
-              />
-            </div>
-
-            {/* Category */}
-            <div style={{ marginBottom: "20px" }}>
-              <label style={labelStyle}>Category</label>
-              <select value={formCategory} onChange={(e) => setFormCategory(e.target.value)} style={inputStyle}>
-                <option value="">Select category (optional)</option>
-                {categories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
+              <label style={labelStyle}>Description</label>
+              <textarea value={formDescription} onChange={(e) => setFormDescription(e.target.value)} rows={3} placeholder="Optional" style={{ ...inputStyle, resize: "none", fontFamily: "inherit" }} />
             </div>
 
             {/* Date */}
@@ -567,7 +484,7 @@ export default function Expenses() {
                 style={{
                   flex: 1,
                   padding: "14px",
-                  background: "#667eea",
+                  background: "#10b981",
                   color: "white",
                   border: "none",
                   borderRadius: "8px",
@@ -575,7 +492,7 @@ export default function Expenses() {
                   fontWeight: "600",
                   fontSize: "14px",
                 }}>
-                Add Expense
+                Add Payment
               </button>
               <button
                 onClick={() => {
@@ -602,13 +519,6 @@ export default function Expenses() {
     </div>
   );
 }
-
-const summaryCardStyle: React.CSSProperties = {
-  background: "white",
-  padding: "24px",
-  borderRadius: "12px",
-  boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-};
 
 const thStyle: React.CSSProperties = {
   padding: "14px 16px",

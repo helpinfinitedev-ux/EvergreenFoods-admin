@@ -126,6 +126,59 @@ export default function Customers() {
     doc.save(fileName);
   };
 
+  const generateCustomersPdf = () => {
+    if (customers.length === 0) return;
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("Evergreen Foods", pageWidth / 2, 18, { align: "center" });
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text("Customers Report", pageWidth / 2, 26, { align: "center" });
+
+    const headers = ["Name", "Mobile", "Address", "Balance"];
+    const rows = customers.map((c) => [
+      c.name || "-",
+      c.mobile || "-",
+      c.address || "-",
+      formatMoneyForPdf(Number(c.balance || 0)),
+    ]);
+
+    autoTable(doc, {
+      head: [headers],
+      body: rows,
+      startY: 36,
+      styles: {
+        fontSize: 8.5,
+        cellPadding: 2.5,
+        overflow: "linebreak",
+        valign: "top",
+      },
+      headStyles: {
+        fillColor: [59, 130, 246],
+        textColor: 255,
+        fontStyle: "bold",
+      },
+      alternateRowStyles: {
+        fillColor: [249, 250, 251],
+      },
+      columnStyles: {
+        0: { cellWidth: 30 },
+        1: { cellWidth: 28 },
+        2: { cellWidth: "auto" },
+        3: { cellWidth: 22 },
+      },
+      tableWidth: "auto",
+      margin: { left: 14, right: 14 },
+    });
+
+    const fileName = "customers_" + new Date().toISOString().split("T")[0] + ".pdf";
+    doc.save(fileName);
+  };
+
   useEffect(() => {
     loadCustomers();
   }, []);
@@ -284,7 +337,28 @@ export default function Customers() {
 
   return (
     <div style={{ padding: "30px" }}>
-      <h1 style={{ marginBottom: "30px", fontSize: "28px", fontWeight: "700" }}>Udhaar Balance</h1>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "30px" }}>
+        <h1 style={{ margin: 0, fontSize: "28px", fontWeight: "700" }}>Udhaar Balance</h1>
+        <button
+          onClick={generateCustomersPdf}
+          disabled={customers.length === 0}
+          style={{
+            padding: "10px 16px",
+            background: customers.length === 0 ? "#e5e7eb" : "linear-gradient(135deg, #8b5cf6, #7c3aed)",
+            color: customers.length === 0 ? "#9ca3af" : "white",
+            border: "none",
+            borderRadius: "8px",
+            cursor: customers.length === 0 ? "not-allowed" : "pointer",
+            fontWeight: "700",
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            boxShadow: customers.length === 0 ? "none" : "0 2px 8px rgba(139, 92, 246, 0.3)",
+          }}>
+          <span style={{ fontSize: "16px" }}>📄</span>
+          Download PDF
+        </button>
+      </div>
 
       <div
         style={{

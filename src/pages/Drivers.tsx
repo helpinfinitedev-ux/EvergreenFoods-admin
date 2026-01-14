@@ -268,6 +268,61 @@ export default function Drivers() {
     doc.save(fileName);
   };
 
+  const generateDriversPdf = () => {
+    if (drivers.length === 0) return;
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("Evergreen Foods", pageWidth / 2, 18, { align: "center" });
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text("Drivers Report", pageWidth / 2, 26, { align: "center" });
+
+    const headers = ["Name", "Mobile", "Role", "Status", "Salary"];
+    const rows = drivers.map((d) => [
+      d.name || "-",
+      d.mobile || "-",
+      d.role || "-",
+      d.status || "-",
+      "Rs." + Number(d.baseSalary || 0).toFixed(2),
+    ]);
+
+    autoTable(doc, {
+      head: [headers],
+      body: rows,
+      startY: 36,
+      styles: {
+        fontSize: 8.5,
+        cellPadding: 2.5,
+        overflow: "linebreak",
+        valign: "top",
+      },
+      headStyles: {
+        fillColor: [59, 130, 246],
+        textColor: 255,
+        fontStyle: "bold",
+      },
+      alternateRowStyles: {
+        fillColor: [249, 250, 251],
+      },
+      columnStyles: {
+        0: { cellWidth: 30 },
+        1: { cellWidth: 28 },
+        2: { cellWidth: 18 },
+        3: { cellWidth: 20 },
+        4: { cellWidth: 22 },
+      },
+      tableWidth: "auto",
+      margin: { left: 14, right: 14 },
+    });
+
+    const fileName = "drivers_" + new Date().toISOString().split("T")[0] + ".pdf";
+    doc.save(fileName);
+  };
+
   const toggleStatus = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === "ACTIVE" ? "BLOCKED" : "ACTIVE";
     try {
@@ -407,34 +462,55 @@ export default function Drivers() {
           marginBottom: "30px",
         }}>
         <h1 style={{ fontSize: "28px", fontWeight: "700", margin: 0 }}>Driver Management</h1>
-        <button
-          onClick={() => setShowModal(true)}
-          style={{
-            padding: "12px 24px",
-            background: "linear-gradient(135deg, #10b981, #059669)",
-            color: "white",
-            border: "none",
-            borderRadius: "8px",
-            cursor: "pointer",
-            fontSize: "15px",
-            fontWeight: "600",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            boxShadow: "0 2px 8px rgba(16, 185, 129, 0.3)",
-            transition: "transform 0.15s, box-shadow 0.15s",
-          }}
-          onMouseOver={(e) => {
-            e.currentTarget.style.transform = "translateY(-1px)";
-            e.currentTarget.style.boxShadow = "0 4px 12px rgba(16, 185, 129, 0.4)";
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.transform = "translateY(0)";
-            e.currentTarget.style.boxShadow = "0 2px 8px rgba(16, 185, 129, 0.3)";
-          }}>
-          <span style={{ fontSize: "18px" }}>+</span>
-          Add Driver
-        </button>
+        <div style={{ display: "flex", gap: "10px" }}>
+          <button
+            onClick={generateDriversPdf}
+            disabled={drivers.length === 0}
+            style={{
+              padding: "10px 16px",
+              background: drivers.length === 0 ? "#e5e7eb" : "linear-gradient(135deg, #8b5cf6, #7c3aed)",
+              color: drivers.length === 0 ? "#9ca3af" : "white",
+              border: "none",
+              borderRadius: "8px",
+              cursor: drivers.length === 0 ? "not-allowed" : "pointer",
+              fontWeight: "700",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              boxShadow: drivers.length === 0 ? "none" : "0 2px 8px rgba(139, 92, 246, 0.3)",
+            }}>
+            <span style={{ fontSize: "16px" }}>📄</span>
+            Download PDF
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            style={{
+              padding: "12px 24px",
+              background: "linear-gradient(135deg, #10b981, #059669)",
+              color: "white",
+              border: "none",
+              borderRadius: "8px",
+              cursor: "pointer",
+              fontSize: "15px",
+              fontWeight: "600",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              boxShadow: "0 2px 8px rgba(16, 185, 129, 0.3)",
+              transition: "transform 0.15s, box-shadow 0.15s",
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.transform = "translateY(-1px)";
+              e.currentTarget.style.boxShadow = "0 4px 12px rgba(16, 185, 129, 0.4)";
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = "translateY(0)";
+              e.currentTarget.style.boxShadow = "0 2px 8px rgba(16, 185, 129, 0.3)";
+            }}>
+            <span style={{ fontSize: "18px" }}>+</span>
+            Add Driver
+          </button>
+        </div>
       </div>
 
       <div

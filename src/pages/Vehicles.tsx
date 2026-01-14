@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { vehicleAPI } from "../api";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface VehicleForm {
   registration: string;
@@ -110,6 +112,59 @@ export default function Vehicles() {
 
   if (loading) return <div style={{ padding: "40px", textAlign: "center" }}>Loading...</div>;
 
+  const generateVehiclesPdf = () => {
+    if (vehicles.length === 0) return;
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("Evergreen Foods", pageWidth / 2, 18, { align: "center" });
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text("Vehicles Report", pageWidth / 2, 26, { align: "center" });
+
+    const headers = ["Registration", "Current KM", "Status", "Drivers"];
+    const rows = vehicles.map((v) => [
+      v.registration,
+      String(v.currentKm || 0),
+      v.status,
+      v.drivers && v.drivers.length > 0 ? v.drivers.map((d) => d.name).join(", ") : "-",
+    ]);
+
+    autoTable(doc, {
+      head: [headers],
+      body: rows,
+      startY: 36,
+      styles: {
+        fontSize: 8.5,
+        cellPadding: 2.5,
+        overflow: "linebreak",
+        valign: "top",
+      },
+      headStyles: {
+        fillColor: [59, 130, 246],
+        textColor: 255,
+        fontStyle: "bold",
+      },
+      alternateRowStyles: {
+        fillColor: [249, 250, 251],
+      },
+      columnStyles: {
+        0: { cellWidth: 30 },
+        1: { cellWidth: 24 },
+        2: { cellWidth: 22 },
+        3: { cellWidth: "auto" },
+      },
+      tableWidth: "auto",
+      margin: { left: 14, right: 14 },
+    });
+
+    const fileName = "vehicles_" + new Date().toISOString().split("T")[0] + ".pdf";
+    doc.save(fileName);
+  };
+
   return (
     <div style={{ padding: "30px" }}>
       <div
@@ -120,34 +175,55 @@ export default function Vehicles() {
           marginBottom: "30px",
         }}>
         <h1 style={{ fontSize: "28px", fontWeight: "700", margin: 0 }}>Vehicle Management</h1>
-        <button
-          onClick={() => setShowModal(true)}
-          style={{
-            padding: "12px 24px",
-            background: "linear-gradient(135deg, #3b82f6, #2563eb)",
-            color: "white",
-            border: "none",
-            borderRadius: "8px",
-            cursor: "pointer",
-            fontSize: "15px",
-            fontWeight: "600",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            boxShadow: "0 2px 8px rgba(59, 130, 246, 0.3)",
-            transition: "transform 0.15s, box-shadow 0.15s",
-          }}
-          onMouseOver={(e) => {
-            e.currentTarget.style.transform = "translateY(-1px)";
-            e.currentTarget.style.boxShadow = "0 4px 12px rgba(59, 130, 246, 0.4)";
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.transform = "translateY(0)";
-            e.currentTarget.style.boxShadow = "0 2px 8px rgba(59, 130, 246, 0.3)";
-          }}>
-          <span style={{ fontSize: "18px" }}>+</span>
-          Add Vehicle
-        </button>
+        <div style={{ display: "flex", gap: "10px" }}>
+          <button
+            onClick={generateVehiclesPdf}
+            disabled={vehicles.length === 0}
+            style={{
+              padding: "10px 16px",
+              background: vehicles.length === 0 ? "#e5e7eb" : "linear-gradient(135deg, #8b5cf6, #7c3aed)",
+              color: vehicles.length === 0 ? "#9ca3af" : "white",
+              border: "none",
+              borderRadius: "8px",
+              cursor: vehicles.length === 0 ? "not-allowed" : "pointer",
+              fontWeight: "700",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              boxShadow: vehicles.length === 0 ? "none" : "0 2px 8px rgba(139, 92, 246, 0.3)",
+            }}>
+            <span style={{ fontSize: "16px" }}>📄</span>
+            Download PDF
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            style={{
+              padding: "12px 24px",
+              background: "linear-gradient(135deg, #3b82f6, #2563eb)",
+              color: "white",
+              border: "none",
+              borderRadius: "8px",
+              cursor: "pointer",
+              fontSize: "15px",
+              fontWeight: "600",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              boxShadow: "0 2px 8px rgba(59, 130, 246, 0.3)",
+              transition: "transform 0.15s, box-shadow 0.15s",
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.transform = "translateY(-1px)";
+              e.currentTarget.style.boxShadow = "0 4px 12px rgba(59, 130, 246, 0.4)";
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = "translateY(0)";
+              e.currentTarget.style.boxShadow = "0 2px 8px rgba(59, 130, 246, 0.3)";
+            }}>
+            <span style={{ fontSize: "18px" }}>+</span>
+            Add Vehicle
+          </button>
+        </div>
       </div>
 
       <div

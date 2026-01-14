@@ -1,20 +1,14 @@
 import { useEffect, useState } from "react";
-import { adminAPI } from "../api";
+import { adminAPI, bankAPI } from "../api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-type BankName = { id: number; name: string; label: string };
-
-// Requested shape: {id, name} — extended with `label` for display
-export const banknames: BankName[] = [
-  { id: 1, name: "HDFC", label: "HDFC 180" },
-  { id: 2, name: "AXIS", label: "BOB 037" },
-  { id: 3, name: "Bank of Baroda", label: "BOB 039" },
-];
+type Bank = { id: string; name: string; label: string; balance: number };
 
 type CashToBankEntry = {
   id: string;
   bankName: string;
+  bankId: string;
   amount: number;
   date: string;
   createdAt: string;
@@ -30,6 +24,7 @@ export default function MoneyLedger() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalsByBank, setTotalsByBank] = useState<TotalsByBank[]>([]);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [banks, setBanks] = useState<Bank[]>([]);
 
   // Date filter (server-side)
   const [filter, setFilter] = useState({ startDate: "", endDate: "" });
@@ -38,18 +33,28 @@ export default function MoneyLedger() {
   const [showModal, setShowModal] = useState(false);
   const [mode, setMode] = useState<"create" | "edit">("create");
   const [editing, setEditing] = useState<CashToBankEntry | null>(null);
-  const [bankName, setBankName] = useState(banknames[0]?.name || "");
+  const [selectedBankId, setSelectedBankId] = useState("");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10)); // YYYY-MM-DD
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    loadBanks();
     loadRows(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const getBankLabel = (name: string) => banknames.find((b) => b.name === name)?.label || "";
+  const loadBanks = async () => {
+    try {
+      const res = await bankAPI.getAll();
+      setBanks(res.data || []);
+    } catch (e) {
+      console.error("Failed to load banks", e);
+    }
+  };
+
+  const getBankLabel = (name: string) => banks.find((b) => b.name === name)?.label || "";
 
   const loadRows = async (nextPage: number) => {
     setLoading(true);
@@ -191,7 +196,7 @@ export default function MoneyLedger() {
   const openCreate = () => {
     setMode("create");
     setEditing(null);
-    setBankName(banknames[0]?.name || "");
+    setSelectedBankId(banks[0]?.id || "");
     setAmount("");
     setDate(new Date().toISOString().slice(0, 10));
     setError("");
@@ -201,7 +206,7 @@ export default function MoneyLedger() {
   const openEdit = (row: CashToBankEntry) => {
     setMode("edit");
     setEditing(row);
-    setBankName(row.bankName);
+    setSelectedBankId(row.bankId || banks.find((b) => b.name === row.bankName)?.id || "");
     setAmount(String(row.amount ?? ""));
     setDate(new Date(row.date).toISOString().slice(0, 10));
     setError("");
@@ -218,8 +223,9 @@ export default function MoneyLedger() {
     e.preventDefault();
     setError("");
 
-    if (!bankName || bankName.trim() === "") {
-      setError("Please select a bank name");
+    const selectedBank = banks.find((b) => b.id === selectedBankId);
+    if (!selectedBank) {
+      setError("Please select a bank");
       return;
     }
     const amt = Number(amount);
@@ -231,9 +237,9 @@ export default function MoneyLedger() {
     setSubmitting(true);
     try {
       if (mode === "create") {
-        await adminAPI.createCashToBank({ bankName: bankName.trim(), amount: amt, date });
+        await adminAPI.createCashToBank({ bankName: selectedBank.name, amount: amt, date, bankId: selectedBank.id });
       } else if (mode === "edit" && editing) {
-        await adminAPI.updateCashToBank(editing.id, { bankName: bankName.trim(), amount: amt });
+        await adminAPI.updateCashToBank(editing.id, { bankName: selectedBank.name, amount: amt });
       }
       closeModal();
       loadRows(page);
@@ -336,10 +342,9 @@ export default function MoneyLedger() {
         </div>
       </div>
 
-      {/* Totals by bank */}
+      {/* Bank balances */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "14px", marginBottom: "16px" }}>
-        {banknames.map((b) => {
-          const total = totalsByBank.find((t) => t.bankName === b.name)?.totalAmount || 0;
+        {banks.map((b) => {
           return (
             <div
               key={b.id}
@@ -364,7 +369,7 @@ export default function MoneyLedger() {
                   {b.label}
                 </span>
               </div>
-              <div style={{ marginTop: "6px", fontSize: "22px", fontWeight: "900", color: "#111827" }}>Rs.{Number(total).toFixed(2)}</div>
+              <div style={{ marginTop: "6px", fontSize: "22px", fontWeight: "900", color: "#111827" }}>Rs.{Number(b.balance || 0).toFixed(2)}</div>
             </div>
           );
         })}
@@ -538,9 +543,9 @@ export default function MoneyLedger() {
             <form onSubmit={submit}>
               <div style={{ marginBottom: "16px" }}>
                 <label style={labelStyle}>Bank Name</label>
-                <select value={bankName} onChange={(e) => setBankName(e.target.value)} style={inputStyle as any}>
-                  {banknames.map((b) => (
-                    <option key={b.id} value={b.name}>
+                <select value={selectedBankId} onChange={(e) => setSelectedBankId(e.target.value)} style={inputStyle as any}>
+                  {banks.map((b) => (
+                    <option key={b.id} value={b.id}>
                       {b.name} ({b.label})
                     </option>
                   ))}

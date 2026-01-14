@@ -10,6 +10,9 @@ import Bought from "./pages/Bought";
 import Sold from "./pages/Sold";
 import Expenses from "./pages/Expenses";
 import MoneyLedger from "./pages/MoneyLedger";
+import Payments from "./pages/Payments";
+import PaymentsReceived from "./pages/PaymentsReceived";
+import MyUdhaar from "./pages/MyUdhaar";
 
 function App() {
   return (
@@ -85,6 +88,15 @@ function ProtectedLayout() {
           <NavItem active={location.pathname === "/expenses"} onClick={() => navigate("/expenses")}>
             💸 Expenses
           </NavItem>
+          <NavItem active={location.pathname === "/payments"} onClick={() => navigate("/payments")}>
+            💳 Payments To Companies
+          </NavItem>
+          <NavItem active={location.pathname === "/payments-received"} onClick={() => navigate("/payments-received")}>
+            ✅ Payments Received
+          </NavItem>
+          <NavItem active={location.pathname === "/my-udhaar"} onClick={() => navigate("/my-udhaar")}>
+            📒 My Udhaar
+          </NavItem>
           <NavItem active={location.pathname === "/money-ledger"} onClick={() => navigate("/money-ledger")}>
             💳 Money Ledger
           </NavItem>
@@ -120,6 +132,9 @@ function ProtectedLayout() {
           <Route path="/bought" element={<Bought />} />
           <Route path="/sold" element={<Sold />} />
           <Route path="/expenses" element={<Expenses />} />
+          <Route path="/payments" element={<Payments />} />
+          <Route path="/payments-received" element={<PaymentsReceived />} />
+          <Route path="/my-udhaar" element={<MyUdhaar />} />
           <Route path="/money-ledger" element={<MoneyLedger />} />
         </Routes>
       </div>

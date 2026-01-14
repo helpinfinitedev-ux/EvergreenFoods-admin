@@ -8,9 +8,17 @@ interface ExpenseSummary {
   count: number;
 }
 
+interface TotalCapital {
+  id: string;
+  totalCash: number;
+  todayCash: number;
+  cashLastUpdatedAt: string | null;
+}
+
 export default function Dashboard() {
   const [stats, setStats] = useState<any>(null);
   const [expenseSummary, setExpenseSummary] = useState<ExpenseSummary | null>(null);
+  const [totalCapital, setTotalCapital] = useState<TotalCapital | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -24,16 +32,18 @@ export default function Dashboard() {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - 7);
 
-      const [dashboardRes, expenseRes] = await Promise.all([
+      const [dashboardRes, expenseRes, capitalRes] = await Promise.all([
         adminAPI.getDashboard(),
         expenseAPI.getSummary({
           startDate: startDate.toISOString(),
           endDate: endDate.toISOString(),
         }),
+        adminAPI.getTotalCapital(),
       ]);
 
       setStats(dashboardRes.data);
       setExpenseSummary(expenseRes.data);
+      setTotalCapital(capitalRes.data);
     } catch (err) {
       console.error("Failed to load stats", err);
     } finally {
@@ -153,7 +163,7 @@ export default function Dashboard() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(2, 1fr)",
+          gridTemplateColumns: "repeat(5, 1fr)",
           gap: "24px",
           marginBottom: "30px",
         }}>
@@ -171,13 +181,73 @@ export default function Dashboard() {
           }}>
           <div>
             <div style={{ fontSize: "14px", opacity: 0.9, marginBottom: "8px", fontWeight: "500" }}>Payment Received Today</div>
-            <div style={{ fontSize: "36px", fontWeight: "800" }}>₹{(stats?.todayPaymentReceived || 0).toLocaleString()}</div>
-            <div style={{ fontSize: "13px", opacity: 0.8, marginTop: "8px" }}>Cash + UPI from {stats?.todaySell || 0} KG sold today</div>
+            <div style={{ fontSize: "36px", fontWeight: "800" }}>₹{Number(totalCapital?.todayCash || 0).toLocaleString()}</div>
+            <div style={{ fontSize: "13px", opacity: 0.8, marginTop: "8px" }}>Cash received and tracked today</div>
           </div>
           <div style={{ fontSize: "56px", opacity: 0.3 }}>💰</div>
         </div>
 
+        {/* Total Cash Card */}
+        <div
+          style={{
+            background: "linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)",
+            padding: "32px",
+            borderRadius: "16px",
+            color: "white",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            boxShadow: "0 4px 6px rgba(14, 165, 233, 0.3)",
+          }}>
+          <div>
+            <div style={{ fontSize: "14px", opacity: 0.9, marginBottom: "8px", fontWeight: "500" }}>Total Cash</div>
+            <div style={{ fontSize: "36px", fontWeight: "800" }}>₹{Number(totalCapital?.totalCash || 0).toLocaleString()}</div>
+            <div style={{ fontSize: "13px", opacity: 0.8, marginTop: "8px" }}>Cash available in hand</div>
+          </div>
+          <div style={{ fontSize: "56px", opacity: 0.3 }}>💵</div>
+        </div>
+
         {/* Total Available Stock Card */}
+
+        {/* Total Bank Balance Card */}
+        <div
+          style={{
+            background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+            padding: "32px",
+            borderRadius: "16px",
+            color: "white",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            boxShadow: "0 4px 6px rgba(59, 130, 246, 0.3)",
+          }}>
+          <div>
+            <div style={{ fontSize: "14px", opacity: 0.9, marginBottom: "8px", fontWeight: "500" }}>Total Bank Balance</div>
+            <div style={{ fontSize: "36px", fontWeight: "800" }}>₹{Number(stats?.totalBankBalance || 0).toLocaleString()}</div>
+            <div style={{ fontSize: "13px", opacity: 0.8, marginTop: "8px" }}>Sum of all bank balances</div>
+          </div>
+          <div style={{ fontSize: "56px", opacity: 0.3 }}>🏦</div>
+        </div>
+
+        {/* Total in Market Card */}
+        <div
+          style={{
+            background: "linear-gradient(135deg, #f97316 0%, #ea580c 100%)",
+            padding: "32px",
+            borderRadius: "16px",
+            color: "white",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            boxShadow: "0 4px 6px rgba(249, 115, 22, 0.3)",
+          }}>
+          <div>
+            <div style={{ fontSize: "14px", opacity: 0.9, marginBottom: "8px", fontWeight: "500" }}>Total in Market</div>
+            <div style={{ fontSize: "36px", fontWeight: "800" }}>₹{Number(stats?.totalInMarket || 0).toLocaleString()}</div>
+            <div style={{ fontSize: "13px", opacity: 0.8, marginTop: "8px" }}>Total customer due balance</div>
+          </div>
+          <div style={{ fontSize: "56px", opacity: 0.3 }}>📌</div>
+        </div>
         <div
           style={{
             background: "linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)",
@@ -196,6 +266,37 @@ export default function Dashboard() {
           </div>
           <div style={{ fontSize: "56px", opacity: 0.3 }}>📦</div>
         </div>
+      </div>
+
+      {/* Individual Bank Balances */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px", marginBottom: "30px" }}>
+        {(stats?.banks || []).map((b: any) => (
+          <div
+            key={b.id}
+            style={{
+              background: "white",
+              border: "1px solid #e5e7eb",
+              borderRadius: "12px",
+              padding: "16px",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+            }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <div style={{ fontSize: "13px", color: "#6b7280", fontWeight: "700" }}>{b.name}</div>
+              <span
+                style={{
+                  padding: "2px 8px",
+                  borderRadius: "999px",
+                  background: "#eff6ff",
+                  color: "#1d4ed8",
+                  fontSize: "12px",
+                  fontWeight: "800",
+                }}>
+                {b.label}
+              </span>
+            </div>
+            <div style={{ marginTop: "6px", fontSize: "20px", fontWeight: "900", color: "#111827" }}>₹{Number(b.balance || 0).toFixed(2)}</div>
+          </div>
+        ))}
       </div>
 
       <div
