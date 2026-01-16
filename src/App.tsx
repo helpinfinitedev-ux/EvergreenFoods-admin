@@ -13,6 +13,7 @@ import MoneyLedger from "./pages/MoneyLedger";
 import Payments from "./pages/Payments";
 import PaymentsReceived from "./pages/PaymentsReceived";
 import MyUdhaar from "./pages/MyUdhaar";
+import Companies from "./pages/Companies";
 
 function App() {
   return (
@@ -49,7 +50,7 @@ function ProtectedLayout() {
   }
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#f3f4f6" }}>
+    <div style={{ display: "flex", height: "100vh", background: "#f3f4f6" }}>
       {/* Sidebar */}
       <div
         style={{
@@ -59,6 +60,7 @@ function ProtectedLayout() {
           padding: "20px",
           display: "flex",
           flexDirection: "column",
+          height: "100vh",
         }}>
         <h2 style={{ marginBottom: "30px", fontSize: "20px", fontWeight: "700" }}>Admin Panel</h2>
 
@@ -91,6 +93,9 @@ function ProtectedLayout() {
           <NavItem active={location.pathname === "/payments"} onClick={() => navigate("/payments")}>
             💳 Payments To Companies
           </NavItem>
+          <NavItem active={location.pathname === "/companies"} onClick={() => navigate("/companies")}>
+            🏢 My Companies
+          </NavItem>
           <NavItem active={location.pathname === "/payments-received"} onClick={() => navigate("/payments-received")}>
             ✅ Payments Received
           </NavItem>
@@ -100,6 +105,9 @@ function ProtectedLayout() {
           <NavItem active={location.pathname === "/money-ledger"} onClick={() => navigate("/money-ledger")}>
             💳 Money Ledger
           </NavItem>
+        </nav>
+
+        <div style={{ marginTop: "auto" }}>
           <button
             onClick={handleLogout}
             style={{
@@ -111,17 +119,14 @@ function ProtectedLayout() {
               borderRadius: "6px",
               cursor: "pointer",
               fontWeight: "500",
-              marginTop: "100px",
             }}>
             Logout
           </button>
-        </nav>
-
-        <div style={{ marginTop: "auto" }}></div>
+        </div>
       </div>
 
       {/* Main Content */}
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, height: "auto", overflow: "auto" }}>
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
@@ -133,6 +138,7 @@ function ProtectedLayout() {
           <Route path="/sold" element={<Sold />} />
           <Route path="/expenses" element={<Expenses />} />
           <Route path="/payments" element={<Payments />} />
+          <Route path="/companies" element={<Companies />} />
           <Route path="/payments-received" element={<PaymentsReceived />} />
           <Route path="/my-udhaar" element={<MyUdhaar />} />
           <Route path="/money-ledger" element={<MoneyLedger />} />

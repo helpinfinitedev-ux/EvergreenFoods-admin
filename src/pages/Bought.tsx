@@ -15,6 +15,7 @@ export default function Bought() {
   // Edit modal state
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<any>(null);
+  const [editAmount, setEditAmount] = useState("");
   const [editRate, setEditRate] = useState("");
   const [editTotalAmount, setEditTotalAmount] = useState("");
   const [editDetails, setEditDetails] = useState("");
@@ -56,6 +57,7 @@ export default function Bought() {
   // Edit modal handlers
   const openEditModal = (tx: any) => {
     setEditingTransaction(tx);
+    setEditAmount(tx.amount?.toString() || "");
     setEditRate(tx.rate?.toString() || "");
     setEditTotalAmount(tx.totalAmount?.toString() || "");
     setEditDetails(tx.details || "");
@@ -65,15 +67,24 @@ export default function Bought() {
   const closeEditModal = () => {
     setEditModalOpen(false);
     setEditingTransaction(null);
+    setEditAmount("");
     setEditRate("");
     setEditTotalAmount("");
     setEditDetails("");
   };
 
+  const handleAmountChange = (newAmount: string) => {
+    setEditAmount(newAmount);
+    if (editingTransaction && newAmount && editRate) {
+      const calculatedTotal = Number(newAmount) * Number(editRate);
+      setEditTotalAmount(calculatedTotal.toFixed(2));
+    }
+  };
+
   const handleRateChange = (newRate: string) => {
     setEditRate(newRate);
-    if (editingTransaction && newRate) {
-      const calculatedTotal = Number(newRate) * Number(editingTransaction.amount);
+    if (editingTransaction && newRate && editAmount) {
+      const calculatedTotal = Number(newRate) * Number(editAmount);
       setEditTotalAmount(calculatedTotal.toFixed(2));
     }
   };
@@ -84,6 +95,7 @@ export default function Bought() {
     setSaving(true);
     try {
       const response = await adminAPI.updateTransaction(editingTransaction.id, {
+        amount: editAmount ? Number(editAmount) : undefined,
         rate: editRate ? Number(editRate) : undefined,
         totalAmount: editTotalAmount ? Number(editTotalAmount) : undefined,
         details: editDetails.trim() === "" ? null : editDetails,
@@ -608,6 +620,38 @@ export default function Bought() {
               </div>
             </div>
 
+            {/* Amount Input */}
+            <div style={{ marginBottom: "20px" }}>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "8px",
+                  fontWeight: "600",
+                  fontSize: "14px",
+                  color: "#374151",
+                }}>
+                Quantity (Kg)
+              </label>
+              <input
+                type="number"
+                value={editAmount}
+                onChange={(e) => handleAmountChange(e.target.value)}
+                placeholder="Enter quantity"
+                style={{
+                  width: "100%",
+                  padding: "12px 14px",
+                  border: "2px solid #e5e7eb",
+                  borderRadius: "10px",
+                  fontSize: "16px",
+                  outline: "none",
+                  transition: "border-color 0.2s",
+                  boxSizing: "border-box",
+                }}
+                onFocus={(e) => (e.target.style.borderColor = "#3b82f6")}
+                onBlur={(e) => (e.target.style.borderColor = "#e5e7eb")}
+              />
+            </div>
+
             {/* Rate Input */}
             <div style={{ marginBottom: "20px" }}>
               <label
@@ -672,7 +716,7 @@ export default function Bought() {
                 onBlur={(e) => (e.target.style.borderColor = "#e5e7eb")}
               />
               <p style={{ margin: "8px 0 0", fontSize: "12px", color: "#6b7280" }}>
-                Auto-calculated: Rate × Quantity = ₹{editRate ? (Number(editRate) * Number(editingTransaction.amount)).toFixed(2) : "0.00"}
+                Auto-calculated: Rate × Quantity = ₹{editRate && editAmount ? (Number(editRate) * Number(editAmount)).toFixed(2) : "0.00"}
               </p>
             </div>
 

@@ -38,7 +38,7 @@ export const adminAPI = {
   deleteCashToBank: (id: string) => api.delete(`/admin/cash-to-bank/${id}`),
   getTransactions: (params?: any) => api.get("/admin/transactions", { params }),
   getDriverHistory: (driverId: string, params?: { type?: string; startDate?: string; endDate?: string }) => api.get("/admin/transactions", { params: { driverId, ...params } }),
-  updateTransaction: (id: string, data: { rate?: number; totalAmount?: number; details?: string | null }) => api.put(`/admin/transactions/${id}`, data),
+  updateTransaction: (id: string, data: { amount?: number; rate?: number; totalAmount?: number; details?: string | null }) => api.put(`/admin/transactions/${id}`, data),
   createFinancialNote: (data: any) => api.post("/admin/financial/note", data),
   getTotalCapital: () => api.get("/admin/total-capital"),
 };
@@ -58,6 +58,13 @@ export const vehicleAPI = {
 export const customerAPI = {
   getAll: () => api.get("/api/customers"),
   getHistory: (id: string) => api.get(`/api/customers/${id}/history`),
+};
+
+export const companyAPI = {
+  getAll: (params?: { page?: number; name?: string; mobile?: string; address?: string }) => api.get("/admin/companies", { params }),
+  create: (data: { name: string; mobile?: string; address?: string; amountDue?: number }) => api.post("/admin/companies", data),
+  update: (id: string, data: { name?: string; mobile?: string | null; address?: string | null; amountDue?: number }) => api.patch(`/admin/companies/${id}`, data),
+  delete: (id: string) => api.delete(`/admin/companies/${id}`),
 };
 
 export const notificationAPI = {

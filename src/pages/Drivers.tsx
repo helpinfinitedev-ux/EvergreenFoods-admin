@@ -19,7 +19,6 @@ interface Transaction {
   date: string;
   customer?: { name: string };
   details?: string;
-  imageUrl?: string;
 }
 
 type HistoryTab = "BUY" | "SELL" | "WEIGHT_LOSS";
@@ -1091,7 +1090,6 @@ export default function Drivers() {
                       {historyTab !== "WEIGHT_LOSS" && <th style={historyThStyle}>Total</th>}
                       {historyTab === "SELL" && <th style={historyThStyle}>Customer</th>}
                       <th style={historyThStyle}>Details</th>
-                      {<th style={historyThStyle}>Image</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -1107,7 +1105,6 @@ export default function Drivers() {
                             {Number(txn.amount).toFixed(2)} Kg
                           </span>
                         </td>
-
                         {historyTab !== "WEIGHT_LOSS" && <td style={historyTdStyle}>₹{txn.rate ? Number(txn.rate).toFixed(2) : "-"}</td>}
                         {historyTab !== "WEIGHT_LOSS" && (
                           <td style={historyTdStyle}>
@@ -1116,23 +1113,6 @@ export default function Drivers() {
                         )}
                         {historyTab === "SELL" && <td style={historyTdStyle}>{txn.customer?.name || "-"}</td>}
                         <td style={{ ...historyTdStyle, color: "#9ca3af", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis" }}>{txn.details || "-"}</td>
-                        <td style={historyTdStyle}>
-                          {txn.imageUrl ? (
-                            <img
-                              src={txn.imageUrl}
-                              alt="Weight loss"
-                              style={{
-                                width: "48px",
-                                height: "48px",
-                                objectFit: "cover",
-                                borderRadius: "6px",
-                                border: "1px solid #e5e7eb",
-                              }}
-                            />
-                          ) : (
-                            "-"
-                          )}
-                        </td>
                       </tr>
                     ))}
                   </tbody>
