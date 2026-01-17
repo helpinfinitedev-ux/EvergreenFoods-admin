@@ -32,6 +32,7 @@ export default function PaymentsReceived() {
   const [method, setMethod] = useState<"CASH" | "BANK">("CASH");
   const [amount, setAmount] = useState("");
   const [bankId, setBankId] = useState("");
+  const [totalCash, setTotalCash] = useState(0);
 
   useEffect(() => {
     loadCustomers();
@@ -71,11 +72,21 @@ export default function PaymentsReceived() {
     }
   };
 
+  const loadTotalCash = async () => {
+    try {
+      const res = await adminAPI.getTotalCapital();
+      setTotalCash(Number(res.data?.totalCash || 0));
+    } catch (err) {
+      console.error("Failed to load total cash", err);
+    }
+  };
+
   const openModal = (customer: Customer) => {
     setSelectedCustomer(customer);
     setMethod("CASH");
     setAmount("");
     setBankId(banks[0]?.id || "");
+    loadTotalCash();
     setShowModal(true);
   };
 
@@ -382,6 +393,7 @@ export default function PaymentsReceived() {
                   🏦 Bank
                 </button>
               </div>
+              {method === "CASH" && <div style={{ marginTop: "8px", fontSize: "13px", color: "#059669", fontWeight: "600" }}>Available Cash: ₹{totalCash.toLocaleString()}</div>}
             </div>
 
             {method === "BANK" && (
@@ -398,6 +410,13 @@ export default function PaymentsReceived() {
                     ))
                   )}
                 </select>
+                {bankId &&
+                  (() => {
+                    const selectedBank = banks.find((b) => b.id === bankId);
+                    return selectedBank ? (
+                      <div style={{ marginTop: "8px", fontSize: "13px", color: "#059669", fontWeight: "600" }}>Available Balance: ₹{Number(selectedBank.balance || 0).toLocaleString()}</div>
+                    ) : null;
+                  })()}
               </div>
             )}
 

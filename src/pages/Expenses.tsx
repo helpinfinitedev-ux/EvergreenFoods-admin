@@ -187,6 +187,7 @@ export default function Expenses() {
     setEditCategory(expense.category || "");
     setEditDate(expense.date ? expense.date.split("T")[0] : new Date().toISOString().split("T")[0]);
     setEditBankId(expense.bankId || "");
+    loadTotals();
     setShowEditModal(true);
   };
 
@@ -569,6 +570,7 @@ export default function Expenses() {
                   🏦 Bank
                 </button>
               </div>
+              {editType === "CASH" && <div style={{ marginTop: "8px", fontSize: "13px", color: "#059669", fontWeight: "600" }}>Available Cash: ₹{Number(cashInHand || 0).toLocaleString()}</div>}
             </div>
 
             {/* Bank */}
@@ -586,6 +588,13 @@ export default function Expenses() {
                     ))
                   )}
                 </select>
+                {editBankId &&
+                  (() => {
+                    const selectedBank = banks.find((b) => b.id === editBankId);
+                    return selectedBank ? (
+                      <div style={{ marginTop: "8px", fontSize: "13px", color: "#059669", fontWeight: "600" }}>Available Balance: ₹{Number(selectedBank.balance || 0).toLocaleString()}</div>
+                    ) : null;
+                  })()}
               </div>
             )}
 
@@ -744,6 +753,13 @@ export default function Expenses() {
                     ))
                   )}
                 </select>
+                {formBankId &&
+                  (() => {
+                    const selectedBank = banks.find((b) => b.id === formBankId);
+                    return selectedBank ? (
+                      <div style={{ marginTop: "8px", fontSize: "13px", color: "#059669", fontWeight: "600" }}>Available Balance: ₹{Number(selectedBank.balance || 0).toLocaleString()}</div>
+                    ) : null;
+                  })()}
               </div>
             )}
 

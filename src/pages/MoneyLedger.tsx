@@ -46,6 +46,7 @@ export default function MoneyLedger() {
   const [transferAmount, setTransferAmount] = useState("");
   const [transferError, setTransferError] = useState("");
   const [transferSubmitting, setTransferSubmitting] = useState(false);
+  const [totalCash, setTotalCash] = useState(0);
 
   useEffect(() => {
     loadBanks();
@@ -59,6 +60,15 @@ export default function MoneyLedger() {
       setBanks(res.data || []);
     } catch (e) {
       console.error("Failed to load banks", e);
+    }
+  };
+
+  const loadTotalCash = async () => {
+    try {
+      const res = await adminAPI.getTotalCapital();
+      setTotalCash(Number(res.data?.totalCash || 0));
+    } catch (e) {
+      console.error("Failed to load total cash", e);
     }
   };
 
@@ -206,6 +216,8 @@ export default function MoneyLedger() {
     setAmount("");
     setDate(new Date().toISOString().slice(0, 10));
     setError("");
+    loadTotalCash();
+    loadBanks();
     setShowModal(true);
   };
 
@@ -216,6 +228,8 @@ export default function MoneyLedger() {
     setAmount(String(row.amount ?? ""));
     setDate(new Date(row.date).toISOString().slice(0, 10));
     setError("");
+    loadTotalCash();
+    loadBanks();
     setShowModal(true);
   };
 
@@ -580,7 +594,20 @@ export default function MoneyLedger() {
                     </option>
                   ))}
                 </select>
+                {selectedBankId &&
+                  (() => {
+                    const selectedBank = banks.find((b) => b.id === selectedBankId);
+                    return selectedBank ? (
+                      <div style={{ marginTop: "8px", fontSize: "13px", color: "#059669", fontWeight: "600" }}>Bank Balance: ₹{Number(selectedBank.balance || 0).toLocaleString()}</div>
+                    ) : null;
+                  })()}
               </div>
+
+              {mode === "create" && (
+                <div style={{ marginBottom: "16px", padding: "12px", background: "#f0fdf4", borderRadius: "8px", border: "1px solid #bbf7d0" }}>
+                  <div style={{ fontSize: "13px", color: "#166534", fontWeight: "600" }}>💵 Available Cash: ₹{totalCash.toLocaleString()}</div>
+                </div>
+              )}
 
               <div style={{ marginBottom: "16px" }}>
                 <label style={labelStyle}>Amount (Rs.)</label>

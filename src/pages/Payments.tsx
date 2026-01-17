@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { bankAPI, paymentAPI, companyAPI } from "../api";
+import { adminAPI, bankAPI, paymentAPI, companyAPI } from "../api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -41,6 +41,7 @@ export default function Payments() {
   const [showModal, setShowModal] = useState(false);
   const [filterDates, setFilterDates] = useState({ startDate: "", endDate: "" });
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [totalCash, setTotalCash] = useState(0);
 
   // Form state
   const [formMethod, setFormMethod] = useState<"CASH" | "BANK">("CASH");
@@ -71,6 +72,12 @@ export default function Payments() {
     }
   }, [formMethod, banks, formBankId]);
 
+  useEffect(() => {
+    if (showModal) {
+      loadTotalCash();
+    }
+  }, [showModal]);
+
   const loadBanks = async () => {
     try {
       const res = await bankAPI.getAll();
@@ -89,6 +96,15 @@ export default function Payments() {
       setCompanies(res.data?.companies || []);
     } catch (err) {
       console.error("Failed to load companies", err);
+    }
+  };
+
+  const loadTotalCash = async () => {
+    try {
+      const res = await adminAPI.getTotalCapital();
+      setTotalCash(Number(res.data?.totalCash || 0));
+    } catch (err) {
+      console.error("Failed to load total cash", err);
     }
   };
 
@@ -118,6 +134,7 @@ export default function Payments() {
     setFormBankId("");
     setFormCompanyId("");
     setCompanySearch("");
+    loadTotalCash();
   };
 
   const handleSubmit = async () => {
@@ -493,6 +510,9 @@ export default function Payments() {
                   }}>
                   💵 Cash
                 </button>
+                {formMethod === "CASH" && (
+                  <div style={{ position: "absolute", bottom: "-20px", left: "0", fontSize: "12px", color: "#059669", fontWeight: "600" }}>Available: ₹{totalCash.toLocaleString()}</div>
+                )}
                 <button
                   onClick={() => setFormMethod("BANK")}
                   style={{
@@ -508,6 +528,7 @@ export default function Payments() {
                   🏦 Bank
                 </button>
               </div>
+              {formMethod === "CASH" && <div style={{ marginTop: "8px", fontSize: "13px", color: "#059669", fontWeight: "600" }}>Available Cash: ₹{totalCash.toLocaleString()}</div>}
             </div>
 
             {formMethod === "BANK" && (
