@@ -461,7 +461,7 @@ export default function MoneyLedger() {
                   <td style={tdStyle}>
                     <span style={{ fontWeight: "800", color: "#059669" }}>Rs.{Number(row.amount).toFixed(2)}</span>
                   </td>
-                  <td style={tdStyle}>{formatDate(row.date)}</td>
+                  <td style={tdStyle}>{formatDate(row.updatedAt)}</td>
                   <td style={tdStyle}>
                     <div style={{ display: "flex", gap: "8px" }}>
                       <button
