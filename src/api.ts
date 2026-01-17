@@ -61,6 +61,7 @@ export const vehicleAPI = {
 export const customerAPI = {
   getAll: () => api.get("/api/customers"),
   getHistory: (id: string) => api.get(`/api/customers/${id}/history`),
+  create: (data: { name: string; mobile: string; address?: string; balance?: number }) => api.post("/api/customers", data),
   update: (id: string, data: { name?: string; mobile?: string; address?: string; balance?: number }) => api.patch(`/api/customers/${id}`, data),
 };
 

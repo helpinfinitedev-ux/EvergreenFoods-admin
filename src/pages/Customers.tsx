@@ -37,6 +37,15 @@ export default function Customers() {
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editError, setEditError] = useState("");
 
+  // Add customer modal state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addName, setAddName] = useState("");
+  const [addMobile, setAddMobile] = useState("");
+  const [addAddress, setAddAddress] = useState("");
+  const [addBalance, setAddBalance] = useState("");
+  const [addSubmitting, setAddSubmitting] = useState(false);
+  const [addError, setAddError] = useState("");
+
   // History modal state
   const [historyCustomer, setHistoryCustomer] = useState<any>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -452,6 +461,31 @@ export default function Customers() {
             <span style={{ fontSize: "16px" }}>📄</span>
             Download PDF
           </button>
+          <button
+            onClick={() => {
+              setAddName("");
+              setAddMobile("");
+              setAddAddress("");
+              setAddBalance("");
+              setAddError("");
+              setShowAddModal(true);
+            }}
+            style={{
+              padding: "10px 16px",
+              background: "linear-gradient(135deg, #10b981, #059669)",
+              color: "white",
+              border: "none",
+              borderRadius: "8px",
+              cursor: "pointer",
+              fontWeight: "700",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              boxShadow: "0 2px 8px rgba(16, 185, 129, 0.3)",
+            }}>
+            <span style={{ fontSize: "16px" }}>+</span>
+            Add Customer
+          </button>
         </div>
       </div>
 
@@ -553,6 +587,120 @@ export default function Customers() {
           </tbody>
         </table>
       </div>
+
+      {/* Add Customer Modal */}
+      {showAddModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}>
+          <div
+            style={{
+              background: "white",
+              padding: "30px",
+              borderRadius: "8px",
+              width: "100%",
+              maxWidth: "520px",
+            }}>
+            <h2 style={{ marginBottom: "20px" }}>Add New Customer</h2>
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{ display: "block", marginBottom: "8px", fontWeight: "500" }}>Name *</label>
+              <input type="text" value={addName} onChange={(e) => setAddName(e.target.value)} style={{ width: "100%", padding: "10px", border: "1px solid #ddd", borderRadius: "4px" }} />
+            </div>
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{ display: "block", marginBottom: "8px", fontWeight: "500" }}>Mobile *</label>
+              <input type="text" value={addMobile} onChange={(e) => setAddMobile(e.target.value)} style={{ width: "100%", padding: "10px", border: "1px solid #ddd", borderRadius: "4px" }} />
+            </div>
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{ display: "block", marginBottom: "8px", fontWeight: "500" }}>Address</label>
+              <textarea
+                value={addAddress}
+                onChange={(e) => setAddAddress(e.target.value)}
+                rows={3}
+                style={{ width: "100%", padding: "10px", border: "1px solid #ddd", borderRadius: "4px", fontFamily: "inherit" }}
+              />
+            </div>
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{ display: "block", marginBottom: "8px", fontWeight: "500" }}>Opening Balance (Rs.)</label>
+              <input
+                type="number"
+                value={addBalance}
+                onChange={(e) => setAddBalance(e.target.value)}
+                placeholder="0"
+                style={{ width: "100%", padding: "10px", border: "1px solid #ddd", borderRadius: "4px" }}
+              />
+            </div>
+
+            {addError && <div style={{ marginBottom: "12px", color: "#dc2626", fontSize: "13px" }}>{addError}</div>}
+
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button
+                onClick={async () => {
+                  if (!addName.trim() || !addMobile.trim()) {
+                    setAddError("Name and mobile are required");
+                    return;
+                  }
+                  if (!/^\d{10}$/.test(addMobile.trim())) {
+                    setAddError("Please enter a valid 10-digit mobile number");
+                    return;
+                  }
+                  const bal = Number(addBalance) || 0;
+                  setAddSubmitting(true);
+                  try {
+                    await customerAPI.create({
+                      name: addName.trim(),
+                      mobile: addMobile.trim(),
+                      address: addAddress.trim() || undefined,
+                      balance: bal,
+                    });
+                    setShowAddModal(false);
+                    loadCustomers();
+                  } catch (err: any) {
+                    setAddError(err.response?.data?.error || "Failed to add customer");
+                  } finally {
+                    setAddSubmitting(false);
+                  }
+                }}
+                disabled={addSubmitting}
+                style={{
+                  flex: 1,
+                  padding: "12px",
+                  background: addSubmitting ? "#9ca3af" : "#10b981",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: addSubmitting ? "not-allowed" : "pointer",
+                  fontWeight: "500",
+                }}>
+                {addSubmitting ? "Adding..." : "Add Customer"}
+              </button>
+              <button
+                onClick={() => setShowAddModal(false)}
+                style={{
+                  flex: 1,
+                  padding: "12px",
+                  background: "#e5e7eb",
+                  color: "#374151",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontWeight: "500",
+                }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showEditModal && editingCustomer && (
         <div
