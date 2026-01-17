@@ -264,7 +264,7 @@ export default function Payments() {
   if (loading) return <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>Loading...</div>;
 
   return (
-    <div style={{ padding: "30px" }}>
+    <div style={{ padding: "30px", overflow: "auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "30px" }}>
         <h1 style={{ fontSize: "28px", fontWeight: "700" }}>Payments To Companies</h1>
         <div style={{ display: "flex", gap: "10px" }}>
@@ -470,6 +470,8 @@ export default function Payments() {
               borderRadius: "12px",
               width: "100%",
               maxWidth: "520px",
+              height: "100vh",
+              overflow: "auto",
             }}>
             <h2 style={{ marginBottom: "24px", fontSize: "20px", fontWeight: "700" }}>Add Payment</h2>
 
