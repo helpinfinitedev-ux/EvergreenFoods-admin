@@ -223,9 +223,15 @@ export default function Dashboard() {
           <div>
             <div style={{ fontSize: "14px", opacity: 0.9, marginBottom: "8px", fontWeight: "500" }}>Total Capital</div>
             <div style={{ fontSize: "36px", fontWeight: "800" }}>
-              ₹{(Number(totalCapital?.totalCash || 0) + Number(stats?.totalBankBalance || 0) + Number(stats?.totalInMarket || 0)).toLocaleString()}
+              ₹
+              {(
+                Number(totalCapital?.totalCash || 0) +
+                Number(stats?.totalBankBalance || 0) +
+                Number(stats?.totalInMarket || 0) +
+                Number(stats?.totalCompanyDue < 0 ? 0 : stats?.totalCompanyDue || 0)
+              ).toLocaleString()}
             </div>
-            <div style={{ fontSize: "13px", opacity: 0.8, marginTop: "8px" }}>Cash + Bank + Market</div>
+            <div style={{ fontSize: "13px", opacity: 0.8, marginTop: "8px" }}>Cash + Bank + Market + Advance</div>
           </div>
           <div style={{ fontSize: "56px", opacity: 0.3 }}>💼</div>
         </div>
