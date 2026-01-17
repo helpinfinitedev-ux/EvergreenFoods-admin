@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { bankAPI, expenseAPI } from "../api";
+import { adminAPI, bankAPI, expenseAPI } from "../api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -33,6 +33,10 @@ export default function Expenses() {
   const [banks, setBanks] = useState<Bank[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [cashInHand, setCashInHand] = useState(0);
+  const [totalBankBalance, setTotalBankBalance] = useState(0);
   const [filterType, setFilterType] = useState<string>("");
   const [filterDates, setFilterDates] = useState({ startDate: "", endDate: "" });
   const [downloadingPdf, setDownloadingPdf] = useState(false);
@@ -45,6 +49,14 @@ export default function Expenses() {
   const [formDate, setFormDate] = useState(new Date().toISOString().split("T")[0]);
   const [formBankId, setFormBankId] = useState("");
 
+  // Edit form state
+  const [editType, setEditType] = useState<"CASH" | "BANK">("CASH");
+  const [editAmount, setEditAmount] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [editDate, setEditDate] = useState(new Date().toISOString().split("T")[0]);
+  const [editBankId, setEditBankId] = useState("");
+
   useEffect(() => {
     loadData();
   }, []);
@@ -52,6 +64,12 @@ export default function Expenses() {
   useEffect(() => {
     loadBanks();
   }, []);
+
+  useEffect(() => {
+    if (showModal) {
+      loadTotals();
+    }
+  }, [showModal]);
 
   useEffect(() => {
     if (formType === "BANK" && !formBankId) {
@@ -62,6 +80,15 @@ export default function Expenses() {
     }
   }, [formType, banks, formBankId]);
 
+  useEffect(() => {
+    if (editType === "BANK" && !editBankId) {
+      setEditBankId(banks[0]?.id || "");
+    }
+    if (editType === "CASH" && editBankId) {
+      setEditBankId("");
+    }
+  }, [editType, banks, editBankId]);
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -70,10 +97,7 @@ export default function Expenses() {
       if (filterDates.startDate) params.startDate = filterDates.startDate;
       if (filterDates.endDate) params.endDate = filterDates.endDate;
 
-      const [expensesRes, summaryRes] = await Promise.all([
-        expenseAPI.getAll(params),
-        expenseAPI.getSummary(params),
-      ]);
+      const [expensesRes, summaryRes] = await Promise.all([expenseAPI.getAll(params), expenseAPI.getSummary(params)]);
 
       setExpenses(expensesRes.data);
       setSummary(summaryRes.data);
@@ -90,6 +114,18 @@ export default function Expenses() {
       setBanks(res.data || []);
     } catch (err) {
       console.error("Failed to load banks", err);
+    }
+  };
+
+  const loadTotals = async () => {
+    try {
+      const [capitalRes, bankRes] = await Promise.all([adminAPI.getTotalCapital(), bankAPI.getDetails()]);
+      const totalCash = Number(capitalRes.data?.totalCash ?? 0);
+      const totalBank = Number(bankRes.data?.totalBankBalance ?? 0);
+      setCashInHand(totalCash);
+      setTotalBankBalance(totalBank);
+    } catch (err) {
+      console.error("Failed to load totals", err);
     }
   };
 
@@ -143,6 +179,54 @@ export default function Expenses() {
     setFormBankId("");
   };
 
+  const openEditModal = (expense: Expense) => {
+    setEditingExpense(expense);
+    setEditType(expense.type);
+    setEditAmount(String(expense.amount ?? ""));
+    setEditDescription(expense.description || "");
+    setEditCategory(expense.category || "");
+    setEditDate(expense.date ? expense.date.split("T")[0] : new Date().toISOString().split("T")[0]);
+    setEditBankId(expense.bankId || "");
+    setShowEditModal(true);
+  };
+
+  const closeEditModal = () => {
+    setShowEditModal(false);
+    setEditingExpense(null);
+    setEditType("CASH");
+    setEditAmount("");
+    setEditDescription("");
+    setEditCategory("");
+    setEditDate(new Date().toISOString().split("T")[0]);
+    setEditBankId("");
+  };
+
+  const handleUpdate = async () => {
+    if (!editingExpense) return;
+    if (!editAmount || !editDescription) {
+      alert("Please fill amount and description");
+      return;
+    }
+    if (editType === "BANK" && !editBankId) {
+      alert("Please select a bank");
+      return;
+    }
+    try {
+      await expenseAPI.update(editingExpense.id, {
+        type: editType,
+        amount: parseFloat(editAmount),
+        description: editDescription,
+        category: editCategory || undefined,
+        date: editDate,
+        bankId: editType === "BANK" ? editBankId : undefined,
+      });
+      closeEditModal();
+      loadData();
+    } catch (err) {
+      alert("Failed to update expense");
+    }
+  };
+
   const categories = ["EMI", "Fuel", "Salary", "Labor", "Other"];
 
   const handleFilter = () => {
@@ -194,13 +278,7 @@ export default function Expenses() {
       if (typeText) doc.text(typeText, 14, 42);
 
       const headers = ["Date", "Type", "Category", "Description", "Amount"];
-      const rows = expenses.map((exp) => [
-        formatDatePdf(exp.date),
-        exp.type,
-        exp.category || "-",
-        exp.description || "-",
-        formatMoneyPdf(exp.amount),
-      ]);
+      const rows = expenses.map((exp) => [formatDatePdf(exp.date), exp.type, exp.category || "-", exp.description || "-", formatMoneyPdf(exp.amount)]);
 
       autoTable(doc, {
         head: [headers],
@@ -288,21 +366,15 @@ export default function Expenses() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px", marginBottom: "30px" }}>
           <div style={summaryCardStyle}>
             <div style={{ color: "#6b7280", fontSize: "14px", marginBottom: "8px" }}>Cash Expenses</div>
-            <div style={{ fontSize: "28px", fontWeight: "700", color: "#ef4444" }}>
-              ₹{summary.cashTotal.toLocaleString()}
-            </div>
+            <div style={{ fontSize: "28px", fontWeight: "700", color: "#ef4444" }}>₹{summary.cashTotal.toLocaleString()}</div>
           </div>
           <div style={summaryCardStyle}>
             <div style={{ color: "#6b7280", fontSize: "14px", marginBottom: "8px" }}>Bank Expenses</div>
-            <div style={{ fontSize: "28px", fontWeight: "700", color: "#3b82f6" }}>
-              ₹{summary.bankTotal.toLocaleString()}
-            </div>
+            <div style={{ fontSize: "28px", fontWeight: "700", color: "#3b82f6" }}>₹{summary.bankTotal.toLocaleString()}</div>
           </div>
           <div style={summaryCardStyle}>
             <div style={{ color: "#6b7280", fontSize: "14px", marginBottom: "8px" }}>Total Expenses</div>
-            <div style={{ fontSize: "28px", fontWeight: "700", color: "#111827" }}>
-              ₹{summary.total.toLocaleString()}
-            </div>
+            <div style={{ fontSize: "28px", fontWeight: "700", color: "#111827" }}>₹{summary.total.toLocaleString()}</div>
           </div>
         </div>
       )}
@@ -320,28 +392,15 @@ export default function Expenses() {
         <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "end" }}>
           <div style={{ flex: "1", minWidth: "160px" }}>
             <label style={{ display: "block", marginBottom: "8px", fontWeight: "700", fontSize: "13px", color: "#374151" }}>Start Date</label>
-            <input
-              type="date"
-              value={filterDates.startDate}
-              onChange={(e) => setFilterDates({ ...filterDates, startDate: e.target.value })}
-              style={filterInputStyle}
-            />
+            <input type="date" value={filterDates.startDate} onChange={(e) => setFilterDates({ ...filterDates, startDate: e.target.value })} style={filterInputStyle} />
           </div>
           <div style={{ flex: "1", minWidth: "160px" }}>
             <label style={{ display: "block", marginBottom: "8px", fontWeight: "700", fontSize: "13px", color: "#374151" }}>End Date</label>
-            <input
-              type="date"
-              value={filterDates.endDate}
-              onChange={(e) => setFilterDates({ ...filterDates, endDate: e.target.value })}
-              style={filterInputStyle}
-            />
+            <input type="date" value={filterDates.endDate} onChange={(e) => setFilterDates({ ...filterDates, endDate: e.target.value })} style={filterInputStyle} />
           </div>
           <div style={{ minWidth: "150px" }}>
             <label style={{ display: "block", marginBottom: "8px", fontWeight: "700", fontSize: "13px", color: "#374151" }}>Type</label>
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              style={filterInputStyle}>
+            <select value={filterType} onChange={(e) => setFilterType(e.target.value)} style={filterInputStyle}>
               <option value="">All Types</option>
               <option value="CASH">Cash</option>
               <option value="BANK">Bank</option>
@@ -413,11 +472,9 @@ export default function Expenses() {
                   </td>
                   <td style={tdStyle}>{expense.category || "-"}</td>
                   <td style={tdStyle}>{expense.description}</td>
-                  <td style={{ ...tdStyle, fontWeight: "600", color: "#dc2626" }}>
-                    ₹{Number(expense.amount).toLocaleString()}
-                  </td>
+                  <td style={{ ...tdStyle, fontWeight: "600", color: "#dc2626" }}>₹{Number(expense.amount).toLocaleString()}</td>
                   <td style={tdStyle}>
-                    <button
+                    {/* <button
                       onClick={() => handleDelete(expense.id)}
                       style={{
                         padding: "6px 12px",
@@ -430,6 +487,21 @@ export default function Expenses() {
                         fontWeight: "500",
                       }}>
                       Delete
+                    </button> */}
+                    <button
+                      onClick={() => openEditModal(expense)}
+                      style={{
+                        padding: "6px 12px",
+                        background: "#f59e0b",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "12px",
+                        fontWeight: "500",
+                        marginLeft: "8px",
+                      }}>
+                      Edit
                     </button>
                   </td>
                 </tr>
@@ -438,6 +510,158 @@ export default function Expenses() {
           </tbody>
         </table>
       </div>
+
+      {/* Edit Expense Modal */}
+      {showEditModal && editingExpense && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}>
+          <div
+            style={{
+              background: "white",
+              padding: "30px",
+              borderRadius: "12px",
+              width: "100%",
+              maxWidth: "500px",
+            }}>
+            <h2 style={{ marginBottom: "24px", fontSize: "20px", fontWeight: "700" }}>Edit Expense</h2>
+
+            {/* Expense Type */}
+            <div style={{ marginBottom: "20px" }}>
+              <label style={labelStyle}>Expense Type *</label>
+              <div style={{ display: "flex", gap: "12px" }}>
+                <button
+                  onClick={() => setEditType("CASH")}
+                  style={{
+                    flex: 1,
+                    padding: "14px",
+                    border: editType === "CASH" ? "2px solid #ef4444" : "1px solid #ddd",
+                    borderRadius: "8px",
+                    background: editType === "CASH" ? "#fef2f2" : "white",
+                    cursor: "pointer",
+                    fontWeight: "600",
+                    color: editType === "CASH" ? "#dc2626" : "#374151",
+                  }}>
+                  💵 Cash
+                </button>
+                <button
+                  onClick={() => setEditType("BANK")}
+                  style={{
+                    flex: 1,
+                    padding: "14px",
+                    border: editType === "BANK" ? "2px solid #3b82f6" : "1px solid #ddd",
+                    borderRadius: "8px",
+                    background: editType === "BANK" ? "#eff6ff" : "white",
+                    cursor: "pointer",
+                    fontWeight: "600",
+                    color: editType === "BANK" ? "#2563eb" : "#374151",
+                  }}>
+                  🏦 Bank
+                </button>
+              </div>
+            </div>
+
+            {/* Bank */}
+            {editType === "BANK" && (
+              <div style={{ marginBottom: "20px" }}>
+                <label style={labelStyle}>Bank *</label>
+                <select value={editBankId} onChange={(e) => setEditBankId(e.target.value)} style={inputStyle}>
+                  {banks.length === 0 ? (
+                    <option value="">No banks available</option>
+                  ) : (
+                    banks.map((bank) => (
+                      <option key={bank.id} value={bank.id}>
+                        {bank.name} ({bank.label})
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+            )}
+
+            {/* Amount */}
+            <div style={{ marginBottom: "20px" }}>
+              <label style={labelStyle}>Amount (₹) *</label>
+              <input type="number" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} placeholder="Enter amount" style={inputStyle} />
+            </div>
+
+            {/* Description */}
+            <div style={{ marginBottom: "20px" }}>
+              <label style={labelStyle}>Description *</label>
+              <textarea
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                placeholder="What was this expense for?"
+                rows={3}
+                style={{ ...inputStyle, resize: "none", fontFamily: "inherit" }}
+              />
+            </div>
+
+            {/* Category */}
+            <div style={{ marginBottom: "20px" }}>
+              <label style={labelStyle}>Category</label>
+              <select value={editCategory} onChange={(e) => setEditCategory(e.target.value)} style={inputStyle}>
+                <option value="">Select category (optional)</option>
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Date */}
+            <div style={{ marginBottom: "24px" }}>
+              <label style={labelStyle}>Date</label>
+              <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} style={inputStyle} />
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button
+                onClick={handleUpdate}
+                style={{
+                  flex: 1,
+                  padding: "14px",
+                  background: "#3b82f6",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontWeight: "600",
+                  fontSize: "14px",
+                }}>
+                Save Changes
+              </button>
+              <button
+                onClick={closeEditModal}
+                style={{
+                  flex: 1,
+                  padding: "14px",
+                  background: "#e5e7eb",
+                  color: "#374151",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontWeight: "600",
+                  fontSize: "14px",
+                }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Expense Modal */}
       {showModal && (
@@ -468,34 +692,40 @@ export default function Expenses() {
             <div style={{ marginBottom: "20px" }}>
               <label style={labelStyle}>Expense Type *</label>
               <div style={{ display: "flex", gap: "12px" }}>
-                <button
-                  onClick={() => setFormType("CASH")}
-                  style={{
-                    flex: 1,
-                    padding: "14px",
-                    border: formType === "CASH" ? "2px solid #ef4444" : "1px solid #ddd",
-                    borderRadius: "8px",
-                    background: formType === "CASH" ? "#fef2f2" : "white",
-                    cursor: "pointer",
-                    fontWeight: "600",
-                    color: formType === "CASH" ? "#dc2626" : "#374151",
-                  }}>
-                  💵 Cash
-                </button>
-                <button
-                  onClick={() => setFormType("BANK")}
-                  style={{
-                    flex: 1,
-                    padding: "14px",
-                    border: formType === "BANK" ? "2px solid #3b82f6" : "1px solid #ddd",
-                    borderRadius: "8px",
-                    background: formType === "BANK" ? "#eff6ff" : "white",
-                    cursor: "pointer",
-                    fontWeight: "600",
-                    color: formType === "BANK" ? "#2563eb" : "#374151",
-                  }}>
-                  🏦 Bank
-                </button>
+                <div style={{ flex: 1 }}>
+                  <button
+                    onClick={() => setFormType("CASH")}
+                    style={{
+                      width: "100%",
+                      padding: "14px",
+                      border: formType === "CASH" ? "2px solid #ef4444" : "1px solid #ddd",
+                      borderRadius: "8px",
+                      background: formType === "CASH" ? "#fef2f2" : "white",
+                      cursor: "pointer",
+                      fontWeight: "600",
+                      color: formType === "CASH" ? "#dc2626" : "#374151",
+                    }}>
+                    💵 Cash
+                  </button>
+                  <div style={{ marginTop: "6px", fontSize: "12px", color: "#6b7280" }}>Total Cash: ₹{Number(cashInHand || 0).toLocaleString("en-IN")}</div>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <button
+                    onClick={() => setFormType("BANK")}
+                    style={{
+                      width: "100%",
+                      padding: "14px",
+                      border: formType === "BANK" ? "2px solid #3b82f6" : "1px solid #ddd",
+                      borderRadius: "8px",
+                      background: formType === "BANK" ? "#eff6ff" : "white",
+                      cursor: "pointer",
+                      fontWeight: "600",
+                      color: formType === "BANK" ? "#2563eb" : "#374151",
+                    }}>
+                    🏦 Bank
+                  </button>
+                  <div style={{ marginTop: "6px", fontSize: "12px", color: "#6b7280" }}>Total Bank: ₹{Number(totalBankBalance || 0).toLocaleString("en-IN")}</div>
+                </div>
               </div>
             </div>
 
@@ -520,13 +750,7 @@ export default function Expenses() {
             {/* Amount */}
             <div style={{ marginBottom: "20px" }}>
               <label style={labelStyle}>Amount (₹) *</label>
-              <input
-                type="number"
-                value={formAmount}
-                onChange={(e) => setFormAmount(e.target.value)}
-                placeholder="Enter amount"
-                style={inputStyle}
-              />
+              <input type="number" value={formAmount} onChange={(e) => setFormAmount(e.target.value)} placeholder="Enter amount" style={inputStyle} />
             </div>
 
             {/* Description */}

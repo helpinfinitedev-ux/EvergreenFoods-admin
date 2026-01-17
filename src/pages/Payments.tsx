@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { bankAPI, paymentAPI } from "../api";
+import { bankAPI, paymentAPI, companyAPI } from "../api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -10,6 +10,18 @@ interface Payment {
   description?: string | null;
   date: string;
   bankId?: string | null;
+  companyId?: string | null;
+  company?: {
+    id: string;
+    name: string;
+    amountDue: number;
+  };
+}
+
+interface Company {
+  id: string;
+  name: string;
+  amountDue: number;
 }
 
 interface Bank {
@@ -22,6 +34,7 @@ interface Bank {
 export default function Payments() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -32,13 +45,16 @@ export default function Payments() {
   // Form state
   const [formMethod, setFormMethod] = useState<"CASH" | "BANK">("CASH");
   const [formAmount, setFormAmount] = useState("");
-  const [formCompanyName, setFormCompanyName] = useState("");
   const [formDescription, setFormDescription] = useState("");
   const [formDate, setFormDate] = useState(new Date().toISOString().split("T")[0]);
   const [formBankId, setFormBankId] = useState("");
+  const [formCompanyId, setFormCompanyId] = useState("");
+  const [companySearch, setCompanySearch] = useState("");
+  const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
 
   useEffect(() => {
     loadBanks();
+    loadCompanies();
   }, []);
 
   useEffect(() => {
@@ -64,6 +80,18 @@ export default function Payments() {
     }
   };
 
+  const loadCompanies = async () => {
+    try {
+      // Fetch all companies (or first page, ideally all for dropdown)
+      // Assuming getAll returns { companies: [...] } or just array based on existing CompanyAPI
+      const res = await companyAPI.getAll({});
+      // If the API supports pagination returning 'companies' array:
+      setCompanies(res.data?.companies || []);
+    } catch (err) {
+      console.error("Failed to load companies", err);
+    }
+  };
+
   const loadPayments = async (nextPage: number) => {
     try {
       setLoading(true);
@@ -85,10 +113,11 @@ export default function Payments() {
   const resetForm = () => {
     setFormMethod("CASH");
     setFormAmount("");
-    setFormCompanyName("");
     setFormDescription("");
     setFormDate(new Date().toISOString().split("T")[0]);
     setFormBankId("");
+    setFormCompanyId("");
+    setCompanySearch("");
   };
 
   const handleSubmit = async () => {
@@ -109,16 +138,27 @@ export default function Payments() {
     try {
       await paymentAPI.create({
         amount: amt,
-        companyName: formCompanyName || undefined,
+        companyName: companySearch || undefined,
         description: formDescription || undefined,
         date: formDate,
         bankId: formMethod === "BANK" ? formBankId : undefined,
+        companyId: formCompanyId || undefined,
       });
       setShowModal(false);
       resetForm();
       loadPayments(page);
     } catch (err) {
       alert("Failed to add payment");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this payment? This will revert the amount to the company's due balance.")) return;
+    try {
+      await paymentAPI.delete(id);
+      loadPayments(page);
+    } catch (err) {
+      alert("Failed to delete payment");
     }
   };
 
@@ -174,7 +214,13 @@ export default function Payments() {
       doc.text(periodText, 14, 36);
 
       const headers = ["Date", "Method", "Company", "Description", "Amount"];
-      const rows = payments.map((p) => [formatDatePdf(p.date), getBankLabel(p.bankId), p.companyName || "-", p.description || "-", formatMoneyPdf(p.amount)]);
+      const rows = payments.map((p) => [
+        formatDatePdf(p.date),
+        getBankLabel(p.bankId),
+        p.company ? `${p.company.name} (Due: ${p.company.amountDue})` : p.companyName || "-",
+        p.description || "-",
+        formatMoneyPdf(p.amount),
+      ]);
 
       autoTable(doc, {
         head: [headers],
@@ -295,12 +341,13 @@ export default function Payments() {
               <th style={thStyle}>Company</th>
               <th style={thStyle}>Description</th>
               <th style={thStyle}>Amount</th>
+              <th style={thStyle}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {payments.length === 0 ? (
               <tr>
-                <td colSpan={5} style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
+                <td colSpan={6} style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
                   No payments found
                 </td>
               </tr>
@@ -327,9 +374,34 @@ export default function Payments() {
                       {getBankLabel(payment.bankId)}
                     </span>
                   </td>
-                  <td style={tdStyle}>{payment.companyName || "-"}</td>
+                  <td style={tdStyle}>
+                    {payment.company ? (
+                      <div>
+                        <div style={{ fontWeight: "600", color: "#111827" }}>{payment.company.name}</div>
+                        <div style={{ fontSize: "12px", color: "#ef4444" }}>Due: ₹{Number(payment.company.amountDue).toLocaleString()}</div>
+                      </div>
+                    ) : (
+                      payment.companyName || "-"
+                    )}
+                  </td>
                   <td style={tdStyle}>{payment.description || "-"}</td>
                   <td style={{ ...tdStyle, fontWeight: "600", color: "#059669" }}>₹{Number(payment.amount).toLocaleString()}</td>
+                  <td style={tdStyle}>
+                    <button
+                      onClick={() => handleDelete(payment.id)}
+                      style={{
+                        padding: "6px 12px",
+                        background: "#ef4444",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                        fontSize: "12px",
+                        fontWeight: "600",
+                      }}>
+                      🗑️ Delete
+                    </button>
+                  </td>
                 </tr>
               ))
             )}
@@ -459,10 +531,62 @@ export default function Payments() {
               <input type="number" value={formAmount} onChange={(e) => setFormAmount(e.target.value)} placeholder="Enter amount" style={inputStyle} />
             </div>
 
-            {/* Company */}
-            <div style={{ marginBottom: "20px" }}>
+            {/* Company Selection */}
+            <div style={{ marginBottom: "20px", position: "relative" }}>
               <label style={labelStyle}>Company Name</label>
-              <input type="text" value={formCompanyName} onChange={(e) => setFormCompanyName(e.target.value)} placeholder="Optional" style={inputStyle} />
+              <input
+                type="text"
+                value={companySearch}
+                onChange={(e) => {
+                  setCompanySearch(e.target.value);
+                  setFormCompanyId(""); // Reset ID if user types manual name
+                  setShowCompanyDropdown(true);
+                }}
+                onFocus={() => setShowCompanyDropdown(true)}
+                placeholder="Search or enter company name"
+                style={inputStyle}
+              />
+              {showCompanyDropdown && !formCompanyId && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "100%",
+                    left: 0,
+                    right: 0,
+                    background: "white",
+                    border: "1px solid #ddd",
+                    borderRadius: "8px",
+                    maxHeight: "200px",
+                    overflowY: "auto",
+                    zIndex: 10,
+                    boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+                  }}>
+                  {companies
+                    .filter((c) => c.name.toLowerCase().includes(companySearch.toLowerCase()))
+                    .map((c) => (
+                      <div
+                        key={c.id}
+                        onClick={() => {
+                          setFormCompanyId(c.id);
+                          setCompanySearch(c.name);
+                          setShowCompanyDropdown(false);
+                        }}
+                        style={{
+                          padding: "10px 12px",
+                          cursor: "pointer",
+                          borderBottom: "1px solid #f3f4f6",
+                          fontSize: "14px",
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "white")}>
+                        {c.name} <span style={{ fontSize: "12px", color: "#6b7280" }}>(Due: ₹{c.amountDue})</span>
+                      </div>
+                    ))}
+                  {companies.filter((c) => c.name.toLowerCase().includes(companySearch.toLowerCase())).length === 0 && (
+                    <div style={{ padding: "10px 12px", color: "#9ca3af", fontSize: "13px" }}>No companies found. Manual name will be used.</div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Description */}

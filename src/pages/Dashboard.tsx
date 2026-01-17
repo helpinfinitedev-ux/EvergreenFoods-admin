@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { adminAPI, expenseAPI } from "../api";
+import { adminAPI, expenseAPI, companyAPI } from "../api";
 
 interface ExpenseSummary {
   cashTotal: number;
@@ -19,6 +19,8 @@ export default function Dashboard() {
   const [stats, setStats] = useState<any>(null);
   const [expenseSummary, setExpenseSummary] = useState<ExpenseSummary | null>(null);
   const [totalCapital, setTotalCapital] = useState<TotalCapital | null>(null);
+  const [totalUdhaar, setTotalUdhaar] = useState(0);
+  const [totalCompanies, setTotalCompanies] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -27,23 +29,32 @@ export default function Dashboard() {
 
   const loadStats = async () => {
     try {
-      // Get last 7 days date range
+      // Get today's expenses
       const endDate = new Date();
       const startDate = new Date();
-      startDate.setDate(startDate.getDate() - 7);
+      startDate.setHours(0, 0, 0, 0);
 
-      const [dashboardRes, expenseRes, capitalRes] = await Promise.all([
+      const [dashboardRes, expenseRes, capitalRes, borrowedRes, companiesRes] = await Promise.all([
         adminAPI.getDashboard(),
         expenseAPI.getSummary({
           startDate: startDate.toISOString(),
           endDate: endDate.toISOString(),
         }),
         adminAPI.getTotalCapital(),
+        adminAPI.getBorrowedInfo(),
+        companyAPI.getAll({ page: 1 }),
       ]);
 
       setStats(dashboardRes.data);
       setExpenseSummary(expenseRes.data);
       setTotalCapital(capitalRes.data);
+
+      // Calculate Total Udhaar
+      const udhaar = (borrowedRes.data || []).reduce((sum: number, item: any) => sum + Number(item.borrowedMoney || 0), 0);
+      setTotalUdhaar(udhaar);
+
+      // Set Total Companies
+      setTotalCompanies(borrowedRes.data?.length || 0);
     } catch (err) {
       console.error("Failed to load stats", err);
     } finally {
@@ -61,10 +72,11 @@ export default function Dashboard() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
+          gridTemplateColumns: "repeat(4, 1fr)",
           gap: "24px",
           marginBottom: "30px",
         }}>
+        <StatCard title="Total Available Stock" value={`${(stats?.totalAvailableStock || 0).toFixed(2)} KG`} color="#7c3aed" icon="📦" />
         <StatCard title="Today Buy" value={`${stats?.todayBuy || 0} KG`} color="#10b981" icon="📥" />
         <StatCard title="Today Sell" value={`${stats?.todaySell || 0} KG`} color="#3b82f6" icon="📤" />
         <StatCard title="Today Shop Buy" value={`${stats?.todayShopBuy || 0} KG`} color="#8b5cf6" icon="🛒" />
@@ -133,8 +145,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Today's Profit/Loss Card */}
-      <div style={{ marginBottom: "30px" }}>
+      {/* Today's Profit/Loss + Payment Received */}
+      <div style={{ marginBottom: "30px", display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "24px" }}>
         <div
           style={{
             background: (stats?.todayProfit || 0) >= 0 ? "linear-gradient(135deg, #10b981 0%, #059669 100%)" : "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
@@ -157,17 +169,6 @@ export default function Dashboard() {
           </div>
           <div style={{ fontSize: "64px", opacity: 0.3 }}>{(stats?.todayProfit || 0) >= 0 ? "📈" : "📉"}</div>
         </div>
-      </div>
-
-      {/* Payment Received & Available Stock Row */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(5, 1fr)",
-          gap: "24px",
-          marginBottom: "30px",
-        }}>
-        {/* Payment Received Card */}
         <div
           style={{
             background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
@@ -186,8 +187,58 @@ export default function Dashboard() {
           </div>
           <div style={{ fontSize: "56px", opacity: 0.3 }}>💰</div>
         </div>
+      </div>
 
-        {/* Total Cash Card */}
+      {/* Total Amount Due + Total Capital */}
+      <div style={{ marginBottom: "30px", display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "24px" }}>
+        <div
+          style={{
+            background: "linear-gradient(135deg, #06b6d4 0%, #0e7490 100%)",
+            padding: "32px",
+            borderRadius: "16px",
+            color: "white",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            boxShadow: "0 4px 6px rgba(6, 182, 212, 0.3)",
+          }}>
+          <div>
+            <div style={{ fontSize: "14px", opacity: 0.9, marginBottom: "8px", fontWeight: "500" }}>Total Amount Due (Companies)</div>
+            <div style={{ fontSize: "36px", fontWeight: "800" }}>₹{Number(stats?.totalCompanyDue || 0).toLocaleString()}</div>
+            <div style={{ fontSize: "13px", opacity: 0.8, marginTop: "8px" }}>Total due across companies</div>
+          </div>
+          <div style={{ fontSize: "56px", opacity: 0.3 }}>🏢</div>
+        </div>
+        <div
+          style={{
+            background: "linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)",
+            padding: "32px",
+            borderRadius: "16px",
+            color: "white",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            boxShadow: "0 4px 6px rgba(14, 165, 233, 0.3)",
+          }}>
+          <div>
+            <div style={{ fontSize: "14px", opacity: 0.9, marginBottom: "8px", fontWeight: "500" }}>Total Capital</div>
+            <div style={{ fontSize: "36px", fontWeight: "800" }}>
+              ₹{(Number(totalCapital?.totalCash || 0) + Number(stats?.totalBankBalance || 0) + Number(stats?.totalInMarket || 0)).toLocaleString()}
+            </div>
+            <div style={{ fontSize: "13px", opacity: 0.8, marginTop: "8px" }}>Cash + Bank + Market</div>
+          </div>
+          <div style={{ fontSize: "56px", opacity: 0.3 }}>💼</div>
+        </div>
+      </div>
+
+      {/* Total Cash, Bank, Market */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: "24px",
+          marginBottom: "30px",
+        }}>
         <div
           style={{
             background: "linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)",
@@ -206,10 +257,6 @@ export default function Dashboard() {
           </div>
           <div style={{ fontSize: "56px", opacity: 0.3 }}>💵</div>
         </div>
-
-        {/* Total Available Stock Card */}
-
-        {/* Total Bank Balance Card */}
         <div
           style={{
             background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
@@ -228,8 +275,6 @@ export default function Dashboard() {
           </div>
           <div style={{ fontSize: "56px", opacity: 0.3 }}>🏦</div>
         </div>
-
-        {/* Total in Market Card */}
         <div
           style={{
             background: "linear-gradient(135deg, #f97316 0%, #ea580c 100%)",
@@ -247,24 +292,6 @@ export default function Dashboard() {
             <div style={{ fontSize: "13px", opacity: 0.8, marginTop: "8px" }}>Total customer due balance</div>
           </div>
           <div style={{ fontSize: "56px", opacity: 0.3 }}>📌</div>
-        </div>
-        <div
-          style={{
-            background: "linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)",
-            padding: "32px",
-            borderRadius: "16px",
-            color: "white",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            boxShadow: "0 4px 6px rgba(139, 92, 246, 0.3)",
-          }}>
-          <div>
-            <div style={{ fontSize: "14px", opacity: 0.9, marginBottom: "8px", fontWeight: "500" }}>Total Available Stock</div>
-            <div style={{ fontSize: "36px", fontWeight: "800" }}>{(stats?.totalAvailableStock || 0).toFixed(2)} KG</div>
-            <div style={{ fontSize: "13px", opacity: 0.8, marginTop: "8px" }}>Combined stock from all drivers today</div>
-          </div>
-          <div style={{ fontSize: "56px", opacity: 0.3 }}>📦</div>
         </div>
       </div>
 
@@ -329,16 +356,38 @@ export default function Dashboard() {
       </div>
 
       {/* Expense Summary Section */}
-      <h2 style={{ fontSize: "20px", fontWeight: "600", marginBottom: "20px", color: "#374151" }}>Last 7 Days Expenses</h2>
+      <h2 style={{ fontSize: "20px", fontWeight: "600", marginBottom: "20px", color: "#374151" }}>Today's Expenses</h2>
       <div
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(3, 1fr)",
           gap: "24px",
+          marginBottom: "30px",
         }}>
         <ExpenseCard title="Cash Expenses" value={expenseSummary?.cashTotal || 0} color="#ef4444" bgColor="#fef2f2" icon="💵" />
         <ExpenseCard title="Bank Expenses" value={expenseSummary?.bankTotal || 0} color="#3b82f6" bgColor="#eff6ff" icon="🏦" />
         <ExpenseCard title="Total Expenses" value={expenseSummary?.total || 0} color="#7c3aed" bgColor="#f5f3ff" icon="💸" />
+      </div>
+
+      {/* My Udhaar Card */}
+      <div
+        style={{
+          background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
+          padding: "32px",
+          borderRadius: "16px",
+          color: "white",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          boxShadow: "0 4px 6px rgba(99, 102, 241, 0.3)",
+          marginBottom: "30px",
+        }}>
+        <div>
+          <div style={{ fontSize: "14px", opacity: 0.9, marginBottom: "8px", fontWeight: "500" }}>My Udhaar</div>
+          <div style={{ fontSize: "36px", fontWeight: "800" }}>₹{totalUdhaar.toLocaleString()}</div>
+          <div style={{ fontSize: "13px", opacity: 0.8, marginTop: "8px" }}>Across {totalCompanies} People</div>
+        </div>
+        <div style={{ fontSize: "56px", opacity: 0.3 }}>💳</div>
       </div>
     </div>
   );

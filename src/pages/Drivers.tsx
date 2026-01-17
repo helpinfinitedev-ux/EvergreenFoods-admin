@@ -19,6 +19,7 @@ interface Transaction {
   date: string;
   customer?: { name: string };
   details?: string;
+  imageUrl?: string;
 }
 
 type HistoryTab = "BUY" | "SELL" | "WEIGHT_LOSS";
@@ -37,6 +38,7 @@ export default function Drivers() {
   const [form, setForm] = useState<DriverForm>(initialForm);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Edit driver modal state
   const [showEditModal, setShowEditModal] = useState(false);
@@ -206,7 +208,7 @@ export default function Drivers() {
             txn.rate ? "Rs." + Number(txn.rate).toFixed(2) : "-",
             txn.totalAmount ? "Rs." + formatIndianNumber(Number(txn.totalAmount)) : "-",
             txn.details?.replaceAll("₹", "Rs.") || "-",
-          ] as string[]
+          ] as string[],
       );
       columnStyles = {
         0: { cellWidth: 40 },
@@ -507,6 +509,25 @@ export default function Drivers() {
         </div>
       </div>
 
+      {/* Search Input */}
+      <div style={{ marginBottom: "20px" }}>
+        <input
+          type="text"
+          placeholder="Search by name or mobile..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "12px 16px",
+            fontSize: "15px",
+            border: "1px solid #d1d5db",
+            borderRadius: "8px",
+            outline: "none",
+            boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+          }}
+        />
+      </div>
+
       <div
         style={{
           background: "white",
@@ -526,103 +547,108 @@ export default function Drivers() {
             </tr>
           </thead>
           <tbody>
-            {drivers.map((driver) => (
-              <tr
-                key={driver.id}
-                style={{
-                  borderBottom: "1px solid #e5e7eb",
-                  cursor: "pointer",
-                  transition: "background 0.15s",
-                }}
-                onClick={() => openHistoryModal(driver)}
-                onMouseOver={(e) => (e.currentTarget.style.background = "#f9fafb")}
-                onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}>
-                <td style={tdStyle}>{driver.name}</td>
-                <td style={tdStyle}>{driver.mobile}</td>
-                <td style={tdStyle}>
-                  <span
-                    style={{
-                      padding: "4px 12px",
-                      background: driver.role === "ADMIN" ? "#fef3c7" : "#dbeafe",
-                      color: driver.role === "ADMIN" ? "#92400e" : "#1e40af",
-                      borderRadius: "12px",
-                      fontSize: "12px",
-                      fontWeight: "500",
-                    }}>
-                    {driver.role}
-                  </span>
-                </td>
-                <td style={tdStyle}>
-                  <span
-                    style={{
-                      padding: "4px 12px",
-                      background: driver.status === "ACTIVE" ? "#d1fae5" : "#fee2e2",
-                      color: driver.status === "ACTIVE" ? "#065f46" : "#991b1b",
-                      borderRadius: "12px",
-                      fontSize: "12px",
-                      fontWeight: "500",
-                    }}>
-                    {driver.status}
-                  </span>
-                </td>
-                <td style={tdStyle}>₹{driver.baseSalary || 0}</td>
-                <td style={tdStyle}>
-                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openEditDriverModal(driver);
-                      }}
+            {drivers
+              .filter((driver) => {
+                const query = searchQuery.toLowerCase();
+                return driver.name.toLowerCase().includes(query) || driver.mobile.includes(query);
+              })
+              .map((driver) => (
+                <tr
+                  key={driver.id}
+                  style={{
+                    borderBottom: "1px solid #e5e7eb",
+                    cursor: "pointer",
+                    transition: "background 0.15s",
+                  }}
+                  onClick={() => openHistoryModal(driver)}
+                  onMouseOver={(e) => (e.currentTarget.style.background = "#f9fafb")}
+                  onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}>
+                  <td style={tdStyle}>{driver.name}</td>
+                  <td style={tdStyle}>{driver.mobile}</td>
+                  <td style={tdStyle}>
+                    <span
                       style={{
-                        padding: "6px 12px",
-                        background: "#f59e0b",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                        fontSize: "13px",
-                        fontWeight: "600",
+                        padding: "4px 12px",
+                        background: driver.role === "ADMIN" ? "#fef3c7" : "#dbeafe",
+                        color: driver.role === "ADMIN" ? "#92400e" : "#1e40af",
+                        borderRadius: "12px",
+                        fontSize: "12px",
+                        fontWeight: "500",
                       }}>
-                      ✏️ Edit
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleStatus(driver.id, driver.status);
-                      }}
+                      {driver.role}
+                    </span>
+                  </td>
+                  <td style={tdStyle}>
+                    <span
                       style={{
-                        padding: "6px 12px",
-                        background: driver.status === "ACTIVE" ? "#ef4444" : "#10b981",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                        fontSize: "13px",
-                        fontWeight: "600",
+                        padding: "4px 12px",
+                        background: driver.status === "ACTIVE" ? "#d1fae5" : "#fee2e2",
+                        color: driver.status === "ACTIVE" ? "#065f46" : "#991b1b",
+                        borderRadius: "12px",
+                        fontSize: "12px",
+                        fontWeight: "500",
                       }}>
-                      {driver.status === "ACTIVE" ? "Block" : "Activate"}
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteDriver(driver);
-                      }}
-                      style={{
-                        padding: "6px 12px",
-                        background: "#111827",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                        fontSize: "13px",
-                        fontWeight: "600",
-                      }}>
-                      🗑️ Delete
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                      {driver.status}
+                    </span>
+                  </td>
+                  <td style={tdStyle}>₹{driver.baseSalary || 0}</td>
+                  <td style={tdStyle}>
+                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEditDriverModal(driver);
+                        }}
+                        style={{
+                          padding: "6px 12px",
+                          background: "#f59e0b",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          fontSize: "13px",
+                          fontWeight: "600",
+                        }}>
+                        ✏️ Edit
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleStatus(driver.id, driver.status);
+                        }}
+                        style={{
+                          padding: "6px 12px",
+                          background: driver.status === "ACTIVE" ? "#ef4444" : "#10b981",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          fontSize: "13px",
+                          fontWeight: "600",
+                        }}>
+                        {driver.status === "ACTIVE" ? "Block" : "Activate"}
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteDriver(driver);
+                        }}
+                        style={{
+                          padding: "6px 12px",
+                          background: "#111827",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          fontSize: "13px",
+                          fontWeight: "600",
+                        }}>
+                        🗑️ Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>
@@ -986,8 +1012,8 @@ export default function Drivers() {
                           ? tab === "BUY"
                             ? "linear-gradient(135deg, #3b82f6, #2563eb)"
                             : tab === "SELL"
-                            ? "linear-gradient(135deg, #10b981, #059669)"
-                            : "linear-gradient(135deg, #f59e0b, #d97706)"
+                              ? "linear-gradient(135deg, #10b981, #059669)"
+                              : "linear-gradient(135deg, #f59e0b, #d97706)"
                           : "#fff",
                       color: historyTab === tab ? "white" : "#4b5563",
                       border: historyTab === tab ? "none" : "1px solid #d1d5db",
@@ -1090,6 +1116,7 @@ export default function Drivers() {
                       {historyTab !== "WEIGHT_LOSS" && <th style={historyThStyle}>Total</th>}
                       {historyTab === "SELL" && <th style={historyThStyle}>Customer</th>}
                       <th style={historyThStyle}>Details</th>
+                      <th style={historyThStyle}>Image</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1113,6 +1140,26 @@ export default function Drivers() {
                         )}
                         {historyTab === "SELL" && <td style={historyTdStyle}>{txn.customer?.name || "-"}</td>}
                         <td style={{ ...historyTdStyle, color: "#9ca3af", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis" }}>{txn.details || "-"}</td>
+                        <td style={historyTdStyle}>
+                          {txn.imageUrl ? (
+                            <a href={txn.imageUrl} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                              <img
+                                src={txn.imageUrl}
+                                alt="Transaction"
+                                style={{
+                                  width: "44px",
+                                  height: "44px",
+                                  borderRadius: "6px",
+                                  objectFit: "cover",
+                                  border: "1px solid #e5e7eb",
+                                }}
+                              />
+                              <span style={{ color: "#2563eb", textDecoration: "underline", fontSize: "12px", fontWeight: 600 }}>Open</span>
+                            </a>
+                          ) : (
+                            "-"
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

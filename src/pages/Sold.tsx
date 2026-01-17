@@ -6,39 +6,58 @@ import autoTable from "jspdf-autotable";
 export default function Sold() {
     const [transactions, setTransactions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
     const [filter, setFilter] = useState({
         startDate: '',
         endDate: ''
     });
 
     useEffect(() => {
-        loadTransactions();
+        loadTransactions(1, false);
     }, []);
 
-    const loadTransactions = async () => {
+    const loadTransactions = async (nextPage: number, append: boolean) => {
         try {
+            if (append) {
+                setLoadingMore(true);
+            } else {
+                setLoading(true);
+            }
             const params: any = { type: 'SELL' };
             if (filter.startDate) params.startDate = filter.startDate;
             if (filter.endDate) params.endDate = filter.endDate;
+            params.page = nextPage;
 
             const response = await adminAPI.getTransactions(params);
-            setTransactions(response.data);
+            const data = response.data || {};
+            const rows = data.rows || [];
+            setTransactions((prev) => (append ? [...prev, ...rows] : rows));
+            setPage(data.page || nextPage);
+            setTotalPages(data.totalPages || 1);
         } catch (err) {
             console.error('Failed to load transactions', err);
         } finally {
             setLoading(false);
+            setLoadingMore(false);
         }
     };
 
     const handleFilter = () => {
-        setLoading(true);
-        loadTransactions();
+        setPage(1);
+        loadTransactions(1, false);
     };
 
     const clearFilter = () => {
         setFilter({ startDate: '', endDate: '' });
-        setLoading(true);
-        setTimeout(() => loadTransactions(), 0);
+        setPage(1);
+        setTimeout(() => loadTransactions(1, false), 0);
+    };
+
+    const handleLoadMore = () => {
+        if (loadingMore || page >= totalPages) return;
+        loadTransactions(page + 1, true);
     };
 
     // Calculate totals
@@ -417,6 +436,25 @@ export default function Sold() {
                         )}
                     </tbody>
                 </table>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
+                <button
+                    onClick={handleLoadMore}
+                    disabled={loadingMore || page >= totalPages}
+                    style={{
+                        padding: '10px 18px',
+                        background: loadingMore || page >= totalPages ? '#e5e7eb' : '#f3f4f6',
+                        color: loadingMore || page >= totalPages ? '#9ca3af' : '#374151',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '10px',
+                        cursor: loadingMore || page >= totalPages ? 'not-allowed' : 'pointer',
+                        fontWeight: '700',
+                        fontSize: '13px'
+                    }}
+                >
+                    {loadingMore ? 'Loading...' : page >= totalPages ? 'No More Transactions' : 'Load More'}
+                </button>
             </div>
         </div>
     );

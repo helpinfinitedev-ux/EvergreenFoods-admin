@@ -6,10 +6,14 @@ import autoTable from "jspdf-autotable";
 export default function Bought() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [filter, setFilter] = useState({
     startDate: "",
     endDate: "",
     detail: "",
+    companyName: "",
   });
 
   // Edit modal state
@@ -22,36 +26,51 @@ export default function Bought() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    loadTransactions();
+    loadTransactions(1, false);
   }, []);
 
-  const loadTransactions = async (operation?: "filter" | "clear") => {
+  const loadTransactions = async (nextPage: number, append: boolean) => {
     try {
+      if (append) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
       let params: any = { type: "BUY" };
       if (filter.startDate) params.startDate = filter.startDate;
       if (filter.endDate) params.endDate = filter.endDate;
       if (filter.detail) params.details = filter.detail;
-
-      params = operation === "clear" ? { type: "BUY" } : params;
+      if (filter.companyName) params.companyName = filter.companyName;
+      params.page = nextPage;
 
       const response = await adminAPI.getTransactions(params);
-      setTransactions(response.data);
+      const data = response.data || {};
+      const rows = data.rows || [];
+      setTransactions((prev) => (append ? [...prev, ...rows] : rows));
+      setPage(data.page || nextPage);
+      setTotalPages(data.totalPages || 1);
     } catch (err) {
       console.error("Failed to load transactions", err);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
   const handleFilter = () => {
-    setLoading(true);
-    loadTransactions();
+    setPage(1);
+    loadTransactions(1, false);
   };
 
   const clearFilter = () => {
-    setFilter({ startDate: "", endDate: "", detail: "" });
-    setLoading(true);
-    loadTransactions("clear");
+    setFilter({ startDate: "", endDate: "", detail: "", companyName: "" });
+    setPage(1);
+    loadTransactions(1, false);
+  };
+
+  const handleLoadMore = () => {
+    if (loadingMore || page >= totalPages) return;
+    loadTransactions(page + 1, true);
   };
 
   // Edit modal handlers
@@ -356,6 +375,27 @@ export default function Bought() {
               }}
             />
           </div>
+          <div style={{ flex: "1", minWidth: "200px" }}>
+            <label style={{ display: "block", marginBottom: "8px", fontWeight: "500", fontSize: "14px", color: "#374151" }}>Company</label>
+            <input
+              type="text"
+              value={filter.companyName}
+              onChange={(e) => setFilter({ ...filter, companyName: e.target.value })}
+              placeholder='e.g. "Evergreen"'
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                border: "1px solid #d1d5db",
+                borderRadius: "8px",
+                fontSize: "14px",
+                outline: "none",
+                transition: "border-color 0.2s",
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleFilter();
+              }}
+            />
+          </div>
 
           <button
             onClick={handleFilter}
@@ -541,6 +581,24 @@ export default function Bought() {
             )}
           </tbody>
         </table>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "center", marginTop: "16px" }}>
+        <button
+          onClick={handleLoadMore}
+          disabled={loadingMore || page >= totalPages}
+          style={{
+            padding: "10px 18px",
+            background: loadingMore || page >= totalPages ? "#e5e7eb" : "#f3f4f6",
+            color: loadingMore || page >= totalPages ? "#9ca3af" : "#374151",
+            border: "1px solid #d1d5db",
+            borderRadius: "10px",
+            cursor: loadingMore || page >= totalPages ? "not-allowed" : "pointer",
+            fontWeight: "700",
+            fontSize: "13px",
+          }}>
+          {loadingMore ? "Loading..." : page >= totalPages ? "No More Transactions" : "Load More"}
+        </button>
       </div>
 
       {/* Edit Modal */}

@@ -61,6 +61,7 @@ function ProtectedLayout() {
           display: "flex",
           flexDirection: "column",
           height: "100vh",
+          overflow: "auto",
         }}>
         <h2 style={{ marginBottom: "30px", fontSize: "20px", fontWeight: "700" }}>Admin Panel</h2>
 
@@ -153,7 +154,7 @@ function NavItem({ children, active, onClick }: { children: React.ReactNode; act
     <div
       onClick={onClick}
       style={{
-        padding: "12px 16px",
+        padding: "6px 8px",
         marginBottom: "8px",
         background: active ? "#374151" : "transparent",
         borderRadius: "6px",

@@ -87,6 +87,16 @@ export default function MyUdhaar() {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this checkout?")) return;
+    try {
+      await adminAPI.deleteBorrowedInfo(id);
+      loadBorrowedInfo();
+    } catch (err: any) {
+      alert(err.response?.data?.error || "Failed to delete");
+    }
+  };
+
   const filteredRows = useMemo(() => {
     if (!filterDates.startDate && !filterDates.endDate) return rows;
     const start = filterDates.startDate ? new Date(filterDates.startDate + "T00:00:00.000") : null;
@@ -146,11 +156,7 @@ export default function MyUdhaar() {
       doc.text(periodText, 14, 36);
 
       const headers = ["Borrowed Amount", "Borrowed From", "Borrowed On"];
-      const rowsPdf = filteredRows.map((row) => [
-        formatMoneyPdf(row.borrowedMoney),
-        row.borrowedFrom || "-",
-        formatDatePdf(row.borrowedOn),
-      ]);
+      const rowsPdf = filteredRows.map((row) => [formatMoneyPdf(row.borrowedMoney), row.borrowedFrom || "-", formatDatePdf(row.borrowedOn)]);
 
       autoTable(doc, {
         head: [headers],
@@ -249,21 +255,11 @@ export default function MyUdhaar() {
         <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "end" }}>
           <div style={{ flex: "1", minWidth: "160px" }}>
             <label style={{ display: "block", marginBottom: "8px", fontWeight: "700", fontSize: "13px", color: "#374151" }}>Start Date</label>
-            <input
-              type="date"
-              value={filterDates.startDate}
-              onChange={(e) => setFilterDates({ ...filterDates, startDate: e.target.value })}
-              style={filterInputStyle}
-            />
+            <input type="date" value={filterDates.startDate} onChange={(e) => setFilterDates({ ...filterDates, startDate: e.target.value })} style={filterInputStyle} />
           </div>
           <div style={{ flex: "1", minWidth: "160px" }}>
             <label style={{ display: "block", marginBottom: "8px", fontWeight: "700", fontSize: "13px", color: "#374151" }}>End Date</label>
-            <input
-              type="date"
-              value={filterDates.endDate}
-              onChange={(e) => setFilterDates({ ...filterDates, endDate: e.target.value })}
-              style={filterInputStyle}
-            />
+            <input type="date" value={filterDates.endDate} onChange={(e) => setFilterDates({ ...filterDates, endDate: e.target.value })} style={filterInputStyle} />
           </div>
           <button onClick={handleFilter} style={applyBtnStyle}>
             Apply Filter
@@ -311,6 +307,21 @@ export default function MyUdhaar() {
                         fontSize: "13px",
                       }}>
                       ✏️ Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(row.id)}
+                      style={{
+                        padding: "6px 12px",
+                        background: "#ef4444",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                        fontWeight: "700",
+                        fontSize: "13px",
+                        marginLeft: "8px",
+                      }}>
+                      🗑️ Delete
                     </button>
                   </td>
                 </tr>
@@ -380,9 +391,7 @@ export default function MyUdhaar() {
             </div>
 
             {error && (
-              <div style={{ background: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626", padding: "10px 12px", borderRadius: "10px", marginBottom: "14px", fontSize: "14px" }}>
-                {error}
-              </div>
+              <div style={{ background: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626", padding: "10px 12px", borderRadius: "10px", marginBottom: "14px", fontSize: "14px" }}>{error}</div>
             )}
 
             <div style={{ display: "flex", gap: "10px" }}>

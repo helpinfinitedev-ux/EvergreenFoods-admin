@@ -33,6 +33,8 @@ export default function Vehicles() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
     loadVehicles();
@@ -65,16 +67,25 @@ export default function Vehicles() {
 
     setSubmitting(true);
     try {
-      await vehicleAPI.create({
-        registration: form.registration.trim().toUpperCase(),
-        currentKm: form.currentKm ? Number(form.currentKm) : 0,
-        status: form.status,
-      });
+      if (editingId) {
+        await vehicleAPI.update(editingId, {
+          registration: form.registration.trim().toUpperCase(),
+          currentKm: form.currentKm ? Number(form.currentKm) : 0,
+          status: form.status,
+        });
+      } else {
+        await vehicleAPI.create({
+          registration: form.registration.trim().toUpperCase(),
+          currentKm: form.currentKm ? Number(form.currentKm) : 0,
+          status: form.status,
+        });
+      }
       setShowModal(false);
       setForm(initialForm);
+      setEditingId(null);
       loadVehicles();
     } catch (err: any) {
-      setError(err.response?.data?.error || "Failed to create vehicle");
+      setError(err.response?.data?.error || "Failed to save vehicle");
     } finally {
       setSubmitting(false);
     }
@@ -91,9 +102,20 @@ export default function Vehicles() {
     }
   };
 
+  const handleEdit = (vehicle: Vehicle) => {
+    setForm({
+      registration: vehicle.registration,
+      currentKm: String(vehicle.currentKm),
+      status: vehicle.status,
+    });
+    setEditingId(vehicle.id);
+    setShowModal(true);
+  };
+
   const closeModal = () => {
     setShowModal(false);
     setForm(initialForm);
+    setEditingId(null);
     setError("");
   };
 
@@ -126,12 +148,7 @@ export default function Vehicles() {
     doc.text("Vehicles Report", pageWidth / 2, 26, { align: "center" });
 
     const headers = ["Registration", "Current KM", "Status", "Drivers"];
-    const rows = vehicles.map((v) => [
-      v.registration,
-      String(v.currentKm || 0),
-      v.status,
-      v.drivers && v.drivers.length > 0 ? v.drivers.map((d) => d.name).join(", ") : "-",
-    ]);
+    const rows = vehicles.map((v) => [v.registration, String(v.currentKm || 0), v.status, v.drivers && v.drivers.length > 0 ? v.drivers.map((d) => d.name).join(", ") : "-"]);
 
     autoTable(doc, {
       head: [headers],
@@ -226,6 +243,25 @@ export default function Vehicles() {
         </div>
       </div>
 
+      {/* Search Input */}
+      <div style={{ marginBottom: "20px" }}>
+        <input
+          type="text"
+          placeholder="Search by registration or driver name..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "12px 16px",
+            fontSize: "15px",
+            border: "1px solid #d1d5db",
+            borderRadius: "8px",
+            outline: "none",
+            boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+          }}
+        />
+      </div>
+
       <div
         style={{
           background: "white",
@@ -245,125 +281,153 @@ export default function Vehicles() {
             </tr>
           </thead>
           <tbody>
-            {vehicles.length === 0 ? (
+            {vehicles.filter((v) => {
+              const query = searchQuery.toLowerCase();
+              const matchesRegistration = v.registration.toLowerCase().includes(query);
+              const matchesDriver = v.drivers?.some((d) => d.name.toLowerCase().includes(query));
+              return matchesRegistration || matchesDriver;
+            }).length === 0 ? (
               <tr>
                 <td colSpan={6} style={{ ...tdStyle, textAlign: "center", padding: "40px" }}>
-                  No vehicles found. Add your first vehicle!
+                  {searchQuery ? "No vehicles found matching your search." : "No vehicles found. Add your first vehicle!"}
                 </td>
               </tr>
             ) : (
-              vehicles.map((vehicle) => {
-                const statusColors = getStatusColor(vehicle.status);
-                return (
-                  <tr key={vehicle.id} style={{ borderBottom: "1px solid #e5e7eb" }}>
-                    <td style={tdStyle}>
-                      <span style={{ fontWeight: "600", color: "#111827" }}>{vehicle.registration}</span>
-                    </td>
-                    <td style={tdStyle}>{vehicle.currentKm.toLocaleString()} km</td>
-                    <td style={tdStyle}>
-                      <span
-                        style={{
-                          padding: "4px 12px",
-                          background: statusColors.bg,
-                          color: statusColors.color,
-                          borderRadius: "12px",
-                          fontSize: "12px",
-                          fontWeight: "500",
-                        }}>
-                        {vehicle.status}
-                      </span>
-                    </td>
-                    <td style={tdStyle}>
-                      {vehicle.imageUrl ? (
-                        <img
-                          src={vehicle.imageUrl}
-                          alt="Last fuel slip"
+              vehicles
+                .filter((v) => {
+                  const query = searchQuery.toLowerCase();
+                  const matchesRegistration = v.registration.toLowerCase().includes(query);
+                  const matchesDriver = v.drivers?.some((d) => d.name.toLowerCase().includes(query));
+                  return matchesRegistration || matchesDriver;
+                })
+                .map((vehicle) => {
+                  const statusColors = getStatusColor(vehicle.status);
+                  return (
+                    <tr key={vehicle.id} style={{ borderBottom: "1px solid #e5e7eb" }}>
+                      <td style={tdStyle}>
+                        <span style={{ fontWeight: "600", color: "#111827" }}>{vehicle.registration}</span>
+                      </td>
+                      <td style={tdStyle}>{vehicle.currentKm.toLocaleString()} km</td>
+                      <td style={tdStyle}>
+                        <span
                           style={{
-                            width: "60px",
-                            height: "60px",
-                            objectFit: "cover",
-                            borderRadius: "8px",
-                            cursor: "pointer",
-                            border: "1px solid #e5e7eb",
-                          }}
-                          onClick={() => window.open(vehicle.imageUrl, "_blank")}
-                          title="Click to view full image"
-                        />
-                      ) : (
-                        <span style={{ color: "#9ca3af", fontSize: "13px" }}>No image</span>
-                      )}
-                    </td>
-                    <td style={tdStyle}>
-                      {vehicle.drivers && vehicle.drivers.length > 0 ? (
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
-                          {vehicle.drivers.map((d) => (
-                            <span
-                              key={d.id}
-                              style={{
-                                padding: "2px 8px",
-                                background: "#dbeafe",
-                                color: "#1e40af",
-                                borderRadius: "8px",
-                                fontSize: "12px",
-                              }}>
-                              {d.name}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <span style={{ color: "#9ca3af", fontSize: "13px" }}>None assigned</span>
-                      )}
-                    </td>
-                    <td style={tdStyle}>
-                      {deleteConfirm === vehicle.id ? (
-                        <div style={{ display: "flex", gap: "8px" }}>
-                          <button
-                            onClick={() => handleDelete(vehicle.id)}
-                            style={{
-                              padding: "6px 12px",
-                              background: "#ef4444",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                              fontSize: "13px",
-                            }}>
-                            Confirm
-                          </button>
-                          <button
-                            onClick={() => setDeleteConfirm(null)}
-                            style={{
-                              padding: "6px 12px",
-                              background: "#e5e7eb",
-                              color: "#374151",
-                              border: "none",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                              fontSize: "13px",
-                            }}>
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => setDeleteConfirm(vehicle.id)}
-                          style={{
-                            padding: "6px 16px",
-                            background: "#fee2e2",
-                            color: "#dc2626",
-                            border: "none",
-                            borderRadius: "4px",
-                            cursor: "pointer",
-                            fontSize: "14px",
+                            padding: "4px 12px",
+                            background: statusColors.bg,
+                            color: statusColors.color,
+                            borderRadius: "12px",
+                            fontSize: "12px",
                             fontWeight: "500",
                           }}>
-                          Delete
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })
+                          {vehicle.status}
+                        </span>
+                      </td>
+                      <td style={tdStyle}>
+                        {vehicle.imageUrl ? (
+                          <img
+                            src={vehicle.imageUrl}
+                            alt="Last fuel slip"
+                            style={{
+                              width: "60px",
+                              height: "60px",
+                              objectFit: "cover",
+                              borderRadius: "8px",
+                              cursor: "pointer",
+                              border: "1px solid #e5e7eb",
+                            }}
+                            onClick={() => window.open(vehicle.imageUrl, "_blank")}
+                            title="Click to view full image"
+                          />
+                        ) : (
+                          <span style={{ color: "#9ca3af", fontSize: "13px" }}>No image</span>
+                        )}
+                      </td>
+                      <td style={tdStyle}>
+                        {vehicle.drivers && vehicle.drivers.length > 0 ? (
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                            {vehicle.drivers.map((d) => (
+                              <span
+                                key={d.id}
+                                style={{
+                                  padding: "2px 8px",
+                                  background: "#dbeafe",
+                                  color: "#1e40af",
+                                  borderRadius: "8px",
+                                  fontSize: "12px",
+                                }}>
+                                {d.name}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span style={{ color: "#9ca3af", fontSize: "13px" }}>None assigned</span>
+                        )}
+                      </td>
+                      <td style={tdStyle}>
+                        {deleteConfirm === vehicle.id ? (
+                          <div style={{ display: "flex", gap: "8px" }}>
+                            <button
+                              onClick={() => handleDelete(vehicle.id)}
+                              style={{
+                                padding: "6px 12px",
+                                background: "#ef4444",
+                                color: "white",
+                                border: "none",
+                                borderRadius: "4px",
+                                cursor: "pointer",
+                                fontSize: "13px",
+                              }}>
+                              Confirm
+                            </button>
+                            <button
+                              onClick={() => setDeleteConfirm(null)}
+                              style={{
+                                padding: "6px 12px",
+                                background: "#e5e7eb",
+                                color: "#374151",
+                                border: "none",
+                                borderRadius: "4px",
+                                cursor: "pointer",
+                                fontSize: "13px",
+                              }}>
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: "flex", gap: "8px" }}>
+                            <button
+                              onClick={() => handleEdit(vehicle)}
+                              style={{
+                                padding: "6px 16px",
+                                background: "#dbeafe",
+                                color: "#2563eb",
+                                border: "none",
+                                borderRadius: "4px",
+                                cursor: "pointer",
+                                fontSize: "14px",
+                                fontWeight: "500",
+                              }}>
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => setDeleteConfirm(vehicle.id)}
+                              style={{
+                                padding: "6px 16px",
+                                background: "#fee2e2",
+                                color: "#dc2626",
+                                border: "none",
+                                borderRadius: "4px",
+                                cursor: "pointer",
+                                fontSize: "14px",
+                                fontWeight: "500",
+                              }}>
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
             )}
           </tbody>
         </table>
@@ -402,7 +466,7 @@ export default function Vehicles() {
                 alignItems: "center",
                 marginBottom: "24px",
               }}>
-              <h2 style={{ margin: 0, fontSize: "22px", fontWeight: "700", color: "#111827" }}>Add New Vehicle</h2>
+              <h2 style={{ margin: 0, fontSize: "22px", fontWeight: "700", color: "#111827" }}>{editingId ? "Edit Vehicle" : "Add New Vehicle"}</h2>
               <button
                 onClick={closeModal}
                 style={{
@@ -484,7 +548,7 @@ export default function Vehicles() {
                     fontSize: "15px",
                     fontWeight: "600",
                   }}>
-                  {submitting ? "Creating..." : "Create Vehicle"}
+                  {submitting ? "Saving..." : editingId ? "Update Vehicle" : "Create Vehicle"}
                 </button>
               </div>
             </form>

@@ -23,7 +23,19 @@ export default function Customers() {
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [noteType, setNoteType] = useState<"DEBIT_NOTE" | "CREDIT_NOTE">("DEBIT_NOTE");
   const [noteAmount, setNoteAmount] = useState("");
+  const [noteKg, setNoteKg] = useState("");
   const [noteReason, setNoteReason] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Edit customer modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<any>(null);
+  const [editName, setEditName] = useState("");
+  const [editMobile, setEditMobile] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [editBalance, setEditBalance] = useState("");
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editError, setEditError] = useState("");
 
   // History modal state
   const [historyCustomer, setHistoryCustomer] = useState<any>(null);
@@ -76,12 +88,13 @@ export default function Customers() {
       historyStartDate || historyEndDate ? "Period: " + (historyStartDate || "Start") + " to " + (historyEndDate || "Present") : "Report Generated: " + new Date().toLocaleDateString("en-IN");
     doc.text(periodText, 14, 59);
 
-    const headers = ["Date", "Type", "Bill", "Paid", "Due", "Δ", "Info"];
+    const headers = ["Date", "Qty (Kg)", "Type", "Bill", "Paid", "Due", "Δ", "Info"];
     const rows = historyRows.map((row) => {
       const delta = Number(row.change || 0);
       const deltaStr = (delta > 0 ? "+" : delta < 0 ? "-" : "") + formatMoneyForPdf(Math.abs(delta));
       return [
         formatDateForPdf(row.date),
+        row.qtyKg ? Number(row.qtyKg).toFixed(2) : "-",
         row.type,
         formatMoneyForPdf(Number(row.bill || 0)),
         formatMoneyForPdf(Number(row.paid || 0)),
@@ -140,12 +153,7 @@ export default function Customers() {
     doc.text("Customers Report", pageWidth / 2, 26, { align: "center" });
 
     const headers = ["Name", "Mobile", "Address", "Balance"];
-    const rows = customers.map((c) => [
-      c.name || "-",
-      c.mobile || "-",
-      c.address || "-",
-      formatMoneyForPdf(Number(c.balance || 0)),
-    ]);
+    const rows = customers.map((c) => [c.name || "-", c.mobile || "-", c.address || "-", formatMoneyForPdf(Number(c.balance || 0))]);
 
     autoTable(doc, {
       head: [headers],
@@ -199,6 +207,17 @@ export default function Customers() {
     }
   };
 
+  const filteredCustomers = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return customers;
+    return customers.filter((c) => {
+      const name = String(c.name || "").toLowerCase();
+      const mobile = String(c.mobile || "").toLowerCase();
+      const address = String(c.address || "").toLowerCase();
+      return name.includes(q) || mobile.includes(q) || address.includes(q);
+    });
+  }, [customers, searchQuery]);
+
   const loadCustomerHistory = async (customerId: string) => {
     setHistoryLoading(true);
     setHistoryError("");
@@ -230,6 +249,58 @@ export default function Customers() {
     setHistoryError("");
     setHistoryStartDate("");
     setHistoryEndDate("");
+  };
+
+  const openEditCustomerModal = (customer: any) => {
+    setEditingCustomer(customer);
+    setEditName(customer?.name || "");
+    setEditMobile(customer?.mobile || "");
+    setEditAddress(customer?.address || "");
+    setEditBalance(String(customer?.balance ?? 0));
+    setEditError("");
+    setShowEditModal(true);
+  };
+
+  const closeEditCustomerModal = () => {
+    setShowEditModal(false);
+    setEditingCustomer(null);
+    setEditName("");
+    setEditMobile("");
+    setEditAddress("");
+    setEditBalance("");
+    setEditError("");
+  };
+
+  const handleUpdateCustomer = async () => {
+    if (!editingCustomer) return;
+    if (!editName.trim() || !editMobile.trim()) {
+      setEditError("Name and mobile are required");
+      return;
+    }
+    if (!/^\d{10}$/.test(editMobile.trim())) {
+      setEditError("Please enter a valid 10-digit mobile number");
+      return;
+    }
+    const bal = Number(editBalance);
+    if (Number.isNaN(bal)) {
+      setEditError("Balance must be a number");
+      return;
+    }
+    setEditSubmitting(true);
+    try {
+      await customerAPI.update(editingCustomer.id, {
+        name: editName.trim(),
+        mobile: editMobile.trim(),
+        address: editAddress.trim() || undefined,
+        balance: bal,
+      });
+      closeEditCustomerModal();
+      loadCustomers();
+    } catch (err: any) {
+      setEditError(err.response?.data?.error || "Failed to update customer");
+    } finally {
+      setEditSubmitting(false);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -272,10 +343,15 @@ export default function Customers() {
       const typeLabel = t.type === "SELL" ? "Sell" : t.type === "DEBIT_NOTE" ? "Debit Note" : t.type === "CREDIT_NOTE" ? "Credit Note" : String(t.type || "-");
 
       const infoParts: string[] = [];
+      let qtyKg: number | null = null;
       if (t.type === "SELL") {
         const qty = Number(t.amount || 0);
         const rate = Number(t.rate || 0);
+        qtyKg = qty;
         infoParts.push(`${qty.toFixed(2)} Kg @ Rs.${rate ? rate.toFixed(2) : "-"}`);
+      } else if (t.type === "DEBIT_NOTE" || t.type === "CREDIT_NOTE") {
+        const qty = Number(t.amount || 0);
+        if (qty > 0) qtyKg = qty;
       }
       if (t.details) infoParts.push(t.details.replaceAll("₹", "Rs."));
 
@@ -287,6 +363,7 @@ export default function Customers() {
         bill,
         paid,
         change,
+        qtyKg,
         balanceAfter,
       };
     });
@@ -317,6 +394,7 @@ export default function Customers() {
         customerId: selectedCustomer.id,
         type: noteType,
         amount: parseFloat(noteAmount),
+        weight: noteKg ? parseFloat(noteKg) : 0,
         reason: noteReason,
       });
 
@@ -328,6 +406,7 @@ export default function Customers() {
       alert("Note created successfully");
       setShowNoteModal(false);
       setNoteAmount("");
+      setNoteKg("");
       setNoteReason("");
       loadCustomers();
     } catch (err) {
@@ -338,26 +417,42 @@ export default function Customers() {
   return (
     <div style={{ padding: "30px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "30px" }}>
-        <h1 style={{ margin: 0, fontSize: "28px", fontWeight: "700" }}>Udhaar Balance</h1>
-        <button
-          onClick={generateCustomersPdf}
-          disabled={customers.length === 0}
-          style={{
-            padding: "10px 16px",
-            background: customers.length === 0 ? "#e5e7eb" : "linear-gradient(135deg, #8b5cf6, #7c3aed)",
-            color: customers.length === 0 ? "#9ca3af" : "white",
-            border: "none",
-            borderRadius: "8px",
-            cursor: customers.length === 0 ? "not-allowed" : "pointer",
-            fontWeight: "700",
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            boxShadow: customers.length === 0 ? "none" : "0 2px 8px rgba(139, 92, 246, 0.3)",
-          }}>
-          <span style={{ fontSize: "16px" }}>📄</span>
-          Download PDF
-        </button>
+        <h1 style={{ margin: 0, fontSize: "28px", fontWeight: "700" }}>My customers</h1>
+        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search customer..."
+            style={{
+              width: "240px",
+              padding: "10px 12px",
+              border: "1px solid #d1d5db",
+              borderRadius: "8px",
+              fontSize: "14px",
+              outline: "none",
+            }}
+          />
+          <button
+            onClick={generateCustomersPdf}
+            disabled={customers.length === 0}
+            style={{
+              padding: "10px 16px",
+              background: customers.length === 0 ? "#e5e7eb" : "linear-gradient(135deg, #8b5cf6, #7c3aed)",
+              color: customers.length === 0 ? "#9ca3af" : "white",
+              border: "none",
+              borderRadius: "8px",
+              cursor: customers.length === 0 ? "not-allowed" : "pointer",
+              fontWeight: "700",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              boxShadow: customers.length === 0 ? "none" : "0 2px 8px rgba(139, 92, 246, 0.3)",
+            }}>
+            <span style={{ fontSize: "16px" }}>📄</span>
+            Download PDF
+          </button>
+        </div>
       </div>
 
       <div
@@ -378,7 +473,7 @@ export default function Customers() {
             </tr>
           </thead>
           <tbody>
-            {customers.map((customer) => (
+            {filteredCustomers.map((customer) => (
               <tr
                 key={customer.id}
                 style={{ borderBottom: "1px solid #e5e7eb", cursor: "pointer", transition: "background 0.15s" }}
@@ -398,6 +493,23 @@ export default function Customers() {
                   </span>
                 </td>
                 <td style={tdStyle}>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openEditCustomerModal(customer);
+                    }}
+                    style={{
+                      padding: "6px 12px",
+                      background: "#f59e0b",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                      marginRight: "8px",
+                      fontSize: "13px",
+                    }}>
+                    Edit
+                  </button>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -442,6 +554,88 @@ export default function Customers() {
         </table>
       </div>
 
+      {showEditModal && editingCustomer && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}>
+          <div
+            style={{
+              background: "white",
+              padding: "30px",
+              borderRadius: "8px",
+              width: "100%",
+              maxWidth: "520px",
+            }}>
+            <h2 style={{ marginBottom: "20px" }}>Edit Customer</h2>
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{ display: "block", marginBottom: "8px", fontWeight: "500" }}>Name</label>
+              <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} style={{ width: "100%", padding: "10px", border: "1px solid #ddd", borderRadius: "4px" }} />
+            </div>
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{ display: "block", marginBottom: "8px", fontWeight: "500" }}>Mobile</label>
+              <input type="text" value={editMobile} onChange={(e) => setEditMobile(e.target.value)} style={{ width: "100%", padding: "10px", border: "1px solid #ddd", borderRadius: "4px" }} />
+            </div>
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{ display: "block", marginBottom: "8px", fontWeight: "500" }}>Address</label>
+              <textarea
+                value={editAddress}
+                onChange={(e) => setEditAddress(e.target.value)}
+                rows={3}
+                style={{ width: "100%", padding: "10px", border: "1px solid #ddd", borderRadius: "4px", fontFamily: "inherit" }}
+              />
+            </div>
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{ display: "block", marginBottom: "8px", fontWeight: "500" }}>Balance (Rs.)</label>
+              <input type="number" value={editBalance} onChange={(e) => setEditBalance(e.target.value)} style={{ width: "100%", padding: "10px", border: "1px solid #ddd", borderRadius: "4px" }} />
+            </div>
+
+            {editError && <div style={{ marginBottom: "12px", color: "#dc2626", fontSize: "13px" }}>{editError}</div>}
+
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button
+                onClick={handleUpdateCustomer}
+                disabled={editSubmitting}
+                style={{
+                  flex: 1,
+                  padding: "12px",
+                  background: editSubmitting ? "#9ca3af" : "#10b981",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: editSubmitting ? "not-allowed" : "pointer",
+                  fontWeight: "500",
+                }}>
+                {editSubmitting ? "Saving..." : "Save"}
+              </button>
+              <button
+                onClick={closeEditCustomerModal}
+                style={{
+                  flex: 1,
+                  padding: "12px",
+                  background: "#e5e7eb",
+                  color: "#374151",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontWeight: "500",
+                }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showNoteModal && (
         <div
           style={{
@@ -475,6 +669,21 @@ export default function Customers() {
                 type="number"
                 value={noteAmount}
                 onChange={(e) => setNoteAmount(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  border: "1px solid #ddd",
+                  borderRadius: "4px",
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: "20px" }}>
+              <label style={{ display: "block", marginBottom: "8px", fontWeight: "500" }}>Weight (Kg)</label>
+              <input
+                type="number"
+                value={noteKg}
+                onChange={(e) => setNoteKg(e.target.value)}
                 style={{
                   width: "100%",
                   padding: "10px",
@@ -695,10 +904,11 @@ export default function Customers() {
                 <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
                   <thead>
                     <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}>
-                      <th style={{ ...historyThStyle, width: "160px" }}>Date</th>
-                      <th style={{ ...historyThStyle, width: "320px" }}>Info</th>
-                      <th style={{ ...historyThStyle, width: "150px" }}>Bill</th>
-                      <th style={{ ...historyThStyle, width: "170px" }}>Payment Done</th>
+                      <th style={{ ...historyThStyle, width: "140px" }}>Date</th>
+                      <th style={{ ...historyThStyle, width: "110px" }}>Qty (Kg)</th>
+                      <th style={{ ...historyThStyle, width: "260px" }}>Info</th>
+                      <th style={{ ...historyThStyle, width: "140px" }}>Bill</th>
+                      <th style={{ ...historyThStyle, width: "160px" }}>Payment Done</th>
                       <th style={{ ...historyThStyle, width: "150px" }}>Due Balance</th>
                       <th style={{ ...historyThStyle, width: "130px" }}>Type</th>
                     </tr>
@@ -707,11 +917,12 @@ export default function Customers() {
                     {historyRows.map((row) => (
                       <tr key={row.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
                         <td style={historyTdStyle}>{formatDate(row.date)}</td>
+                        <td style={historyTdStyle}>{row.qtyKg ? Number(row.qtyKg).toFixed(2) : "-"}</td>
                         <td
                           style={{
                             ...historyTdStyle,
                             color: "#374151",
-                            maxWidth: "320px",
+                            maxWidth: "260px",
                             whiteSpace: "normal",
                             wordBreak: "break-word",
                             overflowWrap: "anywhere",
