@@ -522,6 +522,13 @@ export default function Payments() {
                     ))
                   )}
                 </select>
+                {formBankId &&
+                  (() => {
+                    const selectedBank = banks.find((b) => b.id === formBankId);
+                    return selectedBank ? (
+                      <div style={{ marginTop: "8px", fontSize: "13px", color: "#059669", fontWeight: "600" }}>Available Balance: ₹{Number(selectedBank.balance || 0).toLocaleString()}</div>
+                    ) : null;
+                  })()}
               </div>
             )}
 
