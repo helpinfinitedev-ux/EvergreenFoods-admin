@@ -331,7 +331,7 @@ export default function Companies() {
                       }}>
                       ✏️ Edit
                     </button>
-                    <button
+                    {/* <button
                       onClick={() => handleDeleteCompany(company)}
                       style={{
                         padding: "6px 12px",
@@ -344,7 +344,7 @@ export default function Companies() {
                         fontWeight: "600",
                       }}>
                       🗑️ Delete
-                    </button>
+                    </button> */}
                   </div>
                 </td>
               </tr>
