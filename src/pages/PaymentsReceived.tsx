@@ -27,6 +27,7 @@ export default function PaymentsReceived() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [filterDates, setFilterDates] = useState({ startDate: "", endDate: "" });
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [method, setMethod] = useState<"CASH" | "BANK">("CASH");
   const [amount, setAmount] = useState("");
@@ -157,12 +158,7 @@ export default function PaymentsReceived() {
       doc.text(periodText, 14, 36);
 
       const headers = ["Customer", "Mobile", "Due Amount", "Last Updated"];
-      const rows = customers.map((c) => [
-        c.name,
-        c.mobile,
-        formatMoneyPdf(c.balance),
-        formatDatePdf(c.updatedAt),
-      ]);
+      const rows = customers.map((c) => [c.name, c.mobile, formatMoneyPdf(c.balance), formatDatePdf(c.updatedAt)]);
 
       autoTable(doc, {
         head: [headers],
@@ -240,21 +236,11 @@ export default function PaymentsReceived() {
         <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "end" }}>
           <div style={{ flex: "1", minWidth: "160px" }}>
             <label style={{ display: "block", marginBottom: "8px", fontWeight: "700", fontSize: "13px", color: "#374151" }}>Start Date</label>
-            <input
-              type="date"
-              value={filterDates.startDate}
-              onChange={(e) => setFilterDates({ ...filterDates, startDate: e.target.value })}
-              style={filterInputStyle}
-            />
+            <input type="date" value={filterDates.startDate} onChange={(e) => setFilterDates({ ...filterDates, startDate: e.target.value })} style={filterInputStyle} />
           </div>
           <div style={{ flex: "1", minWidth: "160px" }}>
             <label style={{ display: "block", marginBottom: "8px", fontWeight: "700", fontSize: "13px", color: "#374151" }}>End Date</label>
-            <input
-              type="date"
-              value={filterDates.endDate}
-              onChange={(e) => setFilterDates({ ...filterDates, endDate: e.target.value })}
-              style={filterInputStyle}
-            />
+            <input type="date" value={filterDates.endDate} onChange={(e) => setFilterDates({ ...filterDates, endDate: e.target.value })} style={filterInputStyle} />
           </div>
           <button onClick={handleFilter} style={applyBtnStyle}>
             Apply Filter
@@ -263,6 +249,25 @@ export default function PaymentsReceived() {
             Clear
           </button>
         </div>
+      </div>
+
+      {/* Search Bar */}
+      <div style={{ marginBottom: "16px" }}>
+        <input
+          type="text"
+          placeholder="Search by name or mobile..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "12px 16px",
+            fontSize: "15px",
+            border: "1px solid #d1d5db",
+            borderRadius: "8px",
+            outline: "none",
+            boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+          }}
+        />
       </div>
 
       <div style={{ background: "white", borderRadius: "8px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", overflow: "hidden" }}>
@@ -284,30 +289,35 @@ export default function PaymentsReceived() {
                 </td>
               </tr>
             ) : (
-              customers.map((customer) => (
-                <tr key={customer.id} style={{ borderBottom: "1px solid #e5e7eb" }}>
-                  <td style={tdStyle}>{customer.name}</td>
-                  <td style={tdStyle}>{customer.mobile}</td>
-                  <td style={{ ...tdStyle, fontWeight: "700", color: "#dc2626" }}>₹{Number(customer.balance).toLocaleString()}</td>
-                  <td style={tdStyle}>{customer.updatedAt ? new Date(customer.updatedAt).toLocaleDateString("en-IN") : "-"}</td>
-                  <td style={tdStyle}>
-                    <button
-                      onClick={() => openModal(customer)}
-                      style={{
-                        padding: "6px 12px",
-                        background: "#10b981",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                        fontSize: "12px",
-                        fontWeight: "600",
-                      }}>
-                      Receive Money
-                    </button>
-                  </td>
-                </tr>
-              ))
+              customers
+                .filter((c) => {
+                  const query = searchQuery.toLowerCase();
+                  return c.name.toLowerCase().includes(query) || c.mobile.includes(query);
+                })
+                .map((customer) => (
+                  <tr key={customer.id} style={{ borderBottom: "1px solid #e5e7eb" }}>
+                    <td style={tdStyle}>{customer.name}</td>
+                    <td style={tdStyle}>{customer.mobile}</td>
+                    <td style={{ ...tdStyle, fontWeight: "700", color: "#dc2626" }}>₹{Number(customer.balance).toLocaleString()}</td>
+                    <td style={tdStyle}>{customer.updatedAt ? new Date(customer.updatedAt).toLocaleDateString("en-IN") : "-"}</td>
+                    <td style={tdStyle}>
+                      <button
+                        onClick={() => openModal(customer)}
+                        style={{
+                          padding: "6px 12px",
+                          background: "#10b981",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          fontSize: "12px",
+                          fontWeight: "600",
+                        }}>
+                        Receive Money
+                      </button>
+                    </td>
+                  </tr>
+                ))
             )}
           </tbody>
         </table>
