@@ -470,7 +470,7 @@ export default function Payments() {
               borderRadius: "12px",
               width: "100%",
               maxWidth: "520px",
-              height: "100vh",
+              maxHeight: "100vh",
               overflow: "auto",
             }}>
             <h2 style={{ marginBottom: "24px", fontSize: "20px", fontWeight: "700" }}>Add Payment</h2>
