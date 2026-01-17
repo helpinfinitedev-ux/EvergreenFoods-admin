@@ -39,6 +39,14 @@ export default function MoneyLedger() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
+  // Bank to Bank transfer modal state
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [fromBankId, setFromBankId] = useState("");
+  const [toBankId, setToBankId] = useState("");
+  const [transferAmount, setTransferAmount] = useState("");
+  const [transferError, setTransferError] = useState("");
+  const [transferSubmitting, setTransferSubmitting] = useState(false);
+
   useEffect(() => {
     loadBanks();
     loadRows(1);
@@ -141,9 +149,7 @@ export default function MoneyLedger() {
         doc.text("Money Ledger (Cash → Bank)", pageWidth / 2, 26, { align: "center" });
 
         const periodText =
-          filter.startDate || filter.endDate
-            ? "Period: " + (filter.startDate || "Start") + " to " + (filter.endDate || "Present")
-            : "Report Generated: " + new Date().toLocaleDateString("en-IN");
+          filter.startDate || filter.endDate ? "Period: " + (filter.startDate || "Start") + " to " + (filter.endDate || "Present") : "Report Generated: " + new Date().toLocaleDateString("en-IN");
 
         doc.setFontSize(10);
         doc.text(periodText, 14, 36);
@@ -310,6 +316,30 @@ export default function MoneyLedger() {
             }}>
             <span style={{ fontSize: "18px" }}>+</span>
             Add Entry
+          </button>
+
+          <button
+            onClick={() => {
+              setFromBankId(banks[0]?.id || "");
+              setToBankId(banks[1]?.id || "");
+              setTransferAmount("");
+              setTransferError("");
+              setShowTransferModal(true);
+            }}
+            style={{
+              padding: "12px 18px",
+              background: "linear-gradient(135deg, #3b82f6, #2563eb)",
+              color: "white",
+              border: "none",
+              borderRadius: "10px",
+              cursor: "pointer",
+              fontWeight: "700",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              boxShadow: "0 2px 10px rgba(59, 130, 246, 0.3)",
+            }}>
+            🔄 Bank to Bank
           </button>
         </div>
       </div>
@@ -564,9 +594,7 @@ export default function MoneyLedger() {
               </div>
 
               {error && (
-                <div style={{ background: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626", padding: "10px 12px", borderRadius: "10px", marginBottom: "14px", fontSize: "14px" }}>
-                  {error}
-                </div>
+                <div style={{ background: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626", padding: "10px 12px", borderRadius: "10px", marginBottom: "14px", fontSize: "14px" }}>{error}</div>
               )}
 
               <div style={{ display: "flex", gap: "10px" }}>
@@ -599,6 +627,155 @@ export default function MoneyLedger() {
                     fontWeight: "800",
                   }}>
                   {submitting ? "Saving..." : mode === "create" ? "Add" : "Update"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Bank to Bank Transfer Modal */}
+      {showTransferModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => setShowTransferModal(false)}>
+          <div
+            style={{
+              background: "white",
+              borderRadius: "14px",
+              padding: "28px",
+              width: "100%",
+              maxWidth: "460px",
+              boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
+            }}
+            onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
+              <h2 style={{ margin: 0, fontSize: "20px", fontWeight: "800", color: "#111827" }}>🔄 Bank to Bank Transfer</h2>
+              <button
+                onClick={() => setShowTransferModal(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "24px",
+                  cursor: "pointer",
+                  color: "#9ca3af",
+                  padding: "4px",
+                  lineHeight: 1,
+                }}>
+                ×
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setTransferError("");
+
+                if (!fromBankId || !toBankId) {
+                  setTransferError("Please select both banks");
+                  return;
+                }
+                if (fromBankId === toBankId) {
+                  setTransferError("Cannot transfer to the same bank");
+                  return;
+                }
+                const amt = Number(transferAmount);
+                if (!transferAmount || Number.isNaN(amt) || amt <= 0) {
+                  setTransferError("Please enter a valid amount");
+                  return;
+                }
+                const fromBank = banks.find((b) => b.id === fromBankId);
+                if (fromBank && Number(fromBank.balance || 0) < amt) {
+                  setTransferError(`Insufficient funds. Available: Rs.${Number(fromBank.balance).toFixed(2)}`);
+                  return;
+                }
+
+                setTransferSubmitting(true);
+                try {
+                  await bankAPI.transfer({ fromBankId, toBankId, amount: amt });
+                  setShowTransferModal(false);
+                  loadBanks();
+                  loadRows(page);
+                } catch (err: any) {
+                  setTransferError(err.response?.data?.error || "Transfer failed");
+                } finally {
+                  setTransferSubmitting(false);
+                }
+              }}>
+              <div style={{ marginBottom: "16px" }}>
+                <label style={labelStyle}>From Bank</label>
+                <select value={fromBankId} onChange={(e) => setFromBankId(e.target.value)} style={inputStyle as any}>
+                  {banks.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} ({b.label}) - Rs.{Number(b.balance || 0).toFixed(2)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ marginBottom: "16px" }}>
+                <label style={labelStyle}>To Bank</label>
+                <select value={toBankId} onChange={(e) => setToBankId(e.target.value)} style={inputStyle as any}>
+                  {banks.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} ({b.label}) - Rs.{Number(b.balance || 0).toFixed(2)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ marginBottom: "18px" }}>
+                <label style={labelStyle}>Amount (Rs.)</label>
+                <input type="number" value={transferAmount} onChange={(e) => setTransferAmount(e.target.value)} placeholder="Enter amount" style={inputStyle} />
+              </div>
+
+              {transferError && (
+                <div style={{ background: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626", padding: "10px 12px", borderRadius: "10px", marginBottom: "14px", fontSize: "14px" }}>
+                  {transferError}
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: "10px" }}>
+                <button
+                  type="button"
+                  onClick={() => setShowTransferModal(false)}
+                  style={{
+                    flex: 1,
+                    padding: "12px",
+                    background: "#f3f4f6",
+                    color: "#374151",
+                    border: "none",
+                    borderRadius: "10px",
+                    cursor: "pointer",
+                    fontWeight: "700",
+                  }}>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={transferSubmitting}
+                  style={{
+                    flex: 1,
+                    padding: "12px",
+                    background: transferSubmitting ? "#9ca3af" : "linear-gradient(135deg, #3b82f6, #2563eb)",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "10px",
+                    cursor: transferSubmitting ? "not-allowed" : "pointer",
+                    fontWeight: "800",
+                  }}>
+                  {transferSubmitting ? "Transferring..." : "Transfer"}
                 </button>
               </div>
             </form>
@@ -674,4 +851,3 @@ const clearBtnStyle: React.CSSProperties = {
   fontWeight: "800",
   fontSize: "14px",
 };
-

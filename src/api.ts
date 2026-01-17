@@ -47,6 +47,7 @@ export const bankAPI = {
   getAll: () => api.get("/admin/banks"),
   getDetails: () => api.get("/admin/banks/details"),
   update: (id: string, data: { name?: string; label?: string; balance?: number }) => api.put(`/admin/banks/${id}`, data),
+  transfer: (data: { fromBankId: string; toBankId: string; amount: number }) => api.post("/admin/banks/transfer", data),
 };
 
 export const vehicleAPI = {
