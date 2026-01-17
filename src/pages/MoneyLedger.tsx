@@ -263,6 +263,7 @@ export default function MoneyLedger() {
       }
       closeModal();
       loadRows(page);
+      await loadBanks();
     } catch (err: any) {
       setError(err.response?.data?.error || "Failed to save entry");
     } finally {
@@ -477,7 +478,7 @@ export default function MoneyLedger() {
                         }}>
                         ✏️ Edit
                       </button>
-                      <button
+                      {/* <button
                         onClick={() => deleteEntry(row)}
                         style={{
                           padding: "6px 12px",
@@ -490,7 +491,7 @@ export default function MoneyLedger() {
                           fontSize: "13px",
                         }}>
                         🗑️ Delete
-                      </button>
+                      </button> */}
                     </div>
                   </td>
                 </tr>

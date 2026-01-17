@@ -449,7 +449,7 @@ export default function Drivers() {
   if (loading) return <div style={{ padding: "40px", textAlign: "center" }}>Loading...</div>;
 
   return (
-    <div style={{ padding: "30px" }}>
+    <div style={{ padding: "30px", overflow: "auto" }}>
       <div
         style={{
           display: "flex",
