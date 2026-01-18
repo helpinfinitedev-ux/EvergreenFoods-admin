@@ -624,6 +624,8 @@ export default function Bought() {
               borderRadius: "16px",
               padding: "30px",
               width: "100%",
+              maxHeight: "80vh",
+              overflowY: "auto",
               maxWidth: "450px",
               boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
               animation: "fadeIn 0.2s ease-out",
