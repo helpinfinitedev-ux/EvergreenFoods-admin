@@ -118,6 +118,7 @@ export default function Bought() {
         rate: editRate ? Number(editRate) : undefined,
         totalAmount: editTotalAmount ? Number(editTotalAmount) : undefined,
         details: editDetails.trim() === "" ? null : editDetails,
+        companyId: editingTransaction.companyId,
       });
 
       // Update local state

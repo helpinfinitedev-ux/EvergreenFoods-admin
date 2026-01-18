@@ -1080,6 +1080,42 @@ export default function Drivers() {
                     Clear
                   </button>
                 )}
+
+                {/* Total Cash Display on Top */}
+                {historyTab !== "WEIGHT_LOSS" && (
+                  <div
+                    style={{
+                      marginLeft: "auto",
+                      padding: "10px 20px",
+                      background: historyTab === "BUY" ? "linear-gradient(135deg, #3b82f6, #2563eb)" : "linear-gradient(135deg, #10b981, #059669)",
+                      color: "white",
+                      borderRadius: "12px",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "flex-end",
+                      boxShadow: historyTab === "BUY" ? "0 4px 12px rgba(59, 130, 246, 0.2)" : "0 4px 12px rgba(16, 185, 129, 0.2)",
+                    }}>
+                    <span style={{ fontSize: "11px", opacity: 0.85, fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px" }}>Total Cash ({historyTab})</span>
+                    <span style={{ fontSize: "20px", fontWeight: "800" }}>₹{transactions.reduce((sum, t) => sum + Number(t.totalAmount || 0), 0).toLocaleString("en-IN")}</span>
+                  </div>
+                )}
+                {historyTab === "WEIGHT_LOSS" && (
+                  <div
+                    style={{
+                      marginLeft: "auto",
+                      padding: "10px 20px",
+                      background: "linear-gradient(135deg, #f59e0b, #d97706)",
+                      color: "white",
+                      borderRadius: "12px",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "flex-end",
+                      boxShadow: "0 4px 12px rgba(245, 158, 11, 0.2)",
+                    }}>
+                    <span style={{ fontSize: "11px", opacity: 0.85, fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px" }}>Total Weight Loss</span>
+                    <span style={{ fontSize: "20px", fontWeight: "800" }}>{transactions.reduce((sum, t) => sum + Number(t.amount || 0), 0).toFixed(2)} Kg</span>
+                  </div>
+                )}
               </div>
             </div>
 
