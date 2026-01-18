@@ -628,7 +628,7 @@ export default function Drivers() {
                         }}>
                         {driver.status === "ACTIVE" ? "Block" : "Activate"}
                       </button>
-                      <button
+                      {/* <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDeleteDriver(driver);
@@ -644,7 +644,7 @@ export default function Drivers() {
                           fontWeight: "600",
                         }}>
                         🗑️ Delete
-                      </button>
+                      </button> */}
                     </div>
                   </td>
                 </tr>
