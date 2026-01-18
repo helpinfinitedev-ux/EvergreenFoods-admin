@@ -9,6 +9,7 @@ export default function Sold() {
     const [loadingMore, setLoadingMore] = useState(false);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
     const [filter, setFilter] = useState({
         startDate: '',
         endDate: ''
@@ -58,6 +59,20 @@ export default function Sold() {
     const handleLoadMore = () => {
         if (loadingMore || page >= totalPages) return;
         loadTransactions(page + 1, true);
+    };
+
+    const handleDelete = async (tx: any) => {
+        const ok = window.confirm("Delete this sold transaction? This will also update cash totals.");
+        if (!ok) return;
+        setDeletingId(tx.id);
+        try {
+            await adminAPI.deleteTransaction(tx.id);
+            setTransactions((prev) => prev.filter((row) => row.id !== tx.id));
+        } catch (err: any) {
+            alert(err.response?.data?.error || "Failed to delete transaction");
+        } finally {
+            setDeletingId(null);
+        }
     };
 
     // Calculate totals
@@ -344,12 +359,13 @@ export default function Sold() {
                             <th style={thStyle}>Rate</th>
                             <th style={thStyle}>Total Amount</th>
                             <th style={thStyle}>Details</th>
+                            <th style={thStyle}>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {transactions.length === 0 ? (
                             <tr>
-                                <td colSpan={8} style={{ padding: '50px', textAlign: 'center', color: '#9ca3af' }}>
+                                <td colSpan={9} style={{ padding: '50px', textAlign: 'center', color: '#9ca3af' }}>
                                     <div style={{ fontSize: '48px', marginBottom: '10px' }}>📭</div>
                                     No sales transactions found
                                 </td>
@@ -431,6 +447,24 @@ export default function Sold() {
                                             {tx.details || '-'}
                                         </span>
                                     </td>
+                                    <td style={tdStyle}>
+                                        <button
+                                            onClick={() => handleDelete(tx)}
+                                            disabled={deletingId === tx.id}
+                                            style={{
+                                                padding: '6px 10px',
+                                                background: deletingId === tx.id ? '#e5e7eb' : '#fee2e2',
+                                                color: deletingId === tx.id ? '#9ca3af' : '#b91c1c',
+                                                border: '1px solid #fecaca',
+                                                borderRadius: '6px',
+                                                cursor: deletingId === tx.id ? 'not-allowed' : 'pointer',
+                                                fontWeight: '600',
+                                                fontSize: '12px'
+                                            }}
+                                        >
+                                            {deletingId === tx.id ? 'Deleting...' : 'Delete'}
+                                        </button>
+                                    </td>
                                 </tr>
                             ))
                         )}
@@ -475,5 +509,4 @@ const tdStyle: React.CSSProperties = {
     fontSize: '14px',
     color: '#6b7280'
 };
-
 

@@ -39,6 +39,7 @@ export const adminAPI = {
   getTransactions: (params?: any) => api.get("/admin/transactions", { params }),
   getDriverHistory: (driverId: string, params?: { type?: string; startDate?: string; endDate?: string }) => api.get("/admin/transactions", { params: { driverId, ...params } }),
   updateTransaction: (id: string, data: { amount?: number; rate?: number; totalAmount?: number; details?: string | null }) => api.put(`/admin/transactions/${id}`, data),
+  deleteTransaction: (id: string) => api.delete(`/admin/transactions/${id}`),
   createFinancialNote: (data: any) => api.post("/admin/financial/note", data),
   getTotalCapital: () => api.get("/admin/total-capital"),
 };
