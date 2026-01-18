@@ -20,6 +20,8 @@ interface Transaction {
   customer?: { name: string };
   details?: string;
   imageUrl?: string;
+  paymentCash?: number;
+  paymentUpi?: number;
 }
 
 type HistoryTab = "BUY" | "SELL" | "WEIGHT_LOSS";
@@ -89,7 +91,13 @@ export default function Drivers() {
       if (endDate) params.endDate = new Date(new Date(endDate).setHours(23, 59, 59, 999)).toISOString();
 
       const response = await adminAPI.getDriverHistory(selectedDriver.id, params);
-      setTransactions(response.data);
+      if (params.type === "SELL") {
+        params.type = "ADVANCE_PAYMENT";
+        const advancePaymentResponse = await adminAPI.getDriverHistory(selectedDriver.id, params);
+        setTransactions([...response.data, ...advancePaymentResponse.data]);
+      } else {
+        setTransactions(response.data);
+      }
     } catch (err) {
       console.error("Failed to load driver history", err);
     } finally {
@@ -1096,7 +1104,17 @@ export default function Drivers() {
                       boxShadow: historyTab === "BUY" ? "0 4px 12px rgba(59, 130, 246, 0.2)" : "0 4px 12px rgba(16, 185, 129, 0.2)",
                     }}>
                     <span style={{ fontSize: "11px", opacity: 0.85, fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px" }}>Total Cash ({historyTab})</span>
-                    <span style={{ fontSize: "20px", fontWeight: "800" }}>₹{transactions.reduce((sum, t) => sum + Number(t.totalAmount || 0), 0).toLocaleString("en-IN")}</span>
+                    {historyTab === "BUY" ? (
+                      <span style={{ fontSize: "20px", fontWeight: "800" }}>₹{transactions.reduce((sum, t) => sum + Number(t.totalAmount || 0), 0).toLocaleString("en-IN")}</span>
+                    ) : (
+                      <span style={{ fontSize: "20px", fontWeight: "800" }}>
+                        ₹
+                        {(
+                          transactions.filter((item) => item.type === "SELL").reduce((sum, t) => sum + Number(t?.paymentCash || 0) + Number(t?.paymentUpi || 0), 0) +
+                          transactions.filter((item) => item.type === "ADVANCE_PAYMENT").reduce((sum, t) => sum + Number(t?.totalAmount || 0), 0)
+                        ).toLocaleString("en-IN")}
+                      </span>
+                    )}
                   </div>
                 )}
                 {historyTab === "WEIGHT_LOSS" && (
