@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authAPI } from "../api";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function Login() {
   const [mobile, setMobile] = useState("");
@@ -9,6 +10,7 @@ export default function Login() {
   const [step, setStep] = useState<"password" | "otp">("password");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -77,6 +79,7 @@ export default function Login() {
                 border: "1px solid #ddd",
                 borderRadius: "6px",
                 fontSize: "16px",
+                boxSizing: "border-box",
               }}
               required
               disabled={step === "otp"}
@@ -86,19 +89,41 @@ export default function Login() {
           {step === "password" ? (
             <div style={{ marginBottom: "20px" }}>
               <label style={{ display: "block", marginBottom: "8px", fontWeight: "500" }}>Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "12px",
-                  border: "1px solid #ddd",
-                  borderRadius: "6px",
-                  fontSize: "16px",
-                }}
-                required
-              />
+              <div style={{ position: "relative" }}>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    paddingRight: "45px",
+                    border: "1px solid #ddd",
+                    borderRadius: "6px",
+                    fontSize: "16px",
+                    boxSizing: "border-box",
+                  }}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{
+                    position: "absolute",
+                    right: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "#6b7280",
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "4px",
+                  }}>
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
             </div>
           ) : (
             <div style={{ marginBottom: "20px" }}>
@@ -114,6 +139,7 @@ export default function Login() {
                   borderRadius: "6px",
                   fontSize: "16px",
                   letterSpacing: "2px",
+                  boxSizing: "border-box",
                 }}
                 placeholder="Enter 6-digit OTP"
                 required
