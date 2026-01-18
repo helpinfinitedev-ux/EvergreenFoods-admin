@@ -939,7 +939,7 @@ export default function Drivers() {
               width: "100%",
               maxWidth: "900px",
               maxHeight: "85vh",
-              overflow: "hidden",
+              overflow: "auto",
               boxShadow: "0 25px 80px rgba(0, 0, 0, 0.35)",
             }}
             onClick={(e) => e.stopPropagation()}>
