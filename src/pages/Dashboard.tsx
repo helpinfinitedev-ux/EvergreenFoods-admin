@@ -77,9 +77,9 @@ export default function Dashboard() {
           marginBottom: "30px",
         }}>
         <StatCard title="Total Available Stock" value={`${(stats?.totalAvailableStock || 0).toFixed(2)} KG`} color="#7c3aed" icon="📦" />
-        <StatCard title="Today Buy" value={`${stats?.todayBuy || 0} KG`} color="#10b981" icon="📥" />
-        <StatCard title="Today Sell" value={`${stats?.todaySell || 0} KG`} color="#3b82f6" icon="📤" />
-        <StatCard title="Today Shop Buy" value={`${stats?.todayShopBuy || 0} KG`} color="#8b5cf6" icon="🛒" />
+        <StatCard title="Today Buy" value={`${(stats?.todayBuy || 0)?.toFixed(2)} KG`} color="#10b981" icon="📥" />
+        <StatCard title="Today Sell" value={`${(stats?.todaySell || 0)?.toFixed(2)} KG`} color="#3b82f6" icon="📤" />
+        <StatCard title="Today Shop Buy" value={`${(stats?.todayShopBuy || 0)?.toFixed(2)} KG`} color="#8b5cf6" icon="🛒" />
       </div>
 
       {/* Today's Buy & Sell Cards Row */}
