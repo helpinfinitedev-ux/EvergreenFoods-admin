@@ -609,6 +609,8 @@ export default function Customers() {
               padding: "30px",
               borderRadius: "8px",
               width: "100%",
+              maxHeight: "80vh",
+              overflowY: "auto",
               maxWidth: "520px",
             }}>
             <h2 style={{ marginBottom: "20px" }}>Add New Customer</h2>
