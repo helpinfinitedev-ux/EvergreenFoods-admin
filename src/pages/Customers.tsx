@@ -329,7 +329,7 @@ export default function Customers() {
     let runningBalance = Number(historyCustomer.balance || 0);
 
     return historyTransactions.map((t) => {
-      const bill = Number(t.totalAmount || 0);
+      let bill = Number(t.totalAmount || 0);
       let paid = Number(t.paymentCash || 0) + Number(t.paymentUpi || 0);
 
       // How this transaction affects customer.balance in backend:
@@ -344,6 +344,15 @@ export default function Customers() {
       } else if (t.type === "CREDIT_NOTE") {
         paid = bill;
         change = -bill;
+      }
+      else if (t.type === "ADVANCE_PAYMENT") {
+        paid = 0;
+        change = -bill;
+      }
+      else if (t.type === "RECEIVE_PAYMENT") {
+        paid = bill;
+        change = -bill;
+        bill = 0;
       }
 
       const balanceAfter = runningBalance;
