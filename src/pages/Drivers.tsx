@@ -1174,7 +1174,7 @@ export default function Drivers() {
                     </tr>
                   </thead>
                   <tbody>
-                    {transactions.filter((item)=>item.type !== "ADVANCE_PAYMENT").map((txn) => (
+                    {transactions.map((txn) => (
                       <tr key={txn.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
                         <td style={historyTdStyle}>{formatDate(txn.date)}</td>
                         <td style={historyTdStyle}>
@@ -1183,7 +1183,7 @@ export default function Drivers() {
                               fontWeight: "600",
                               color: historyTab === "BUY" ? "#2563eb" : historyTab === "SELL" ? "#059669" : "#d97706",
                             }}>
-                            {Number(txn.amount).toFixed(2)} Kg
+                            {txn.type !== "ADVANCE_PAYMENT" ? Number(txn.amount).toFixed(2) : "0"} Kg
                           </span>
                         </td>
                         {historyTab !== "WEIGHT_LOSS" && <td style={historyTdStyle}>₹{txn.rate ? Number(txn.rate).toFixed(2) : "-"}</td>}
