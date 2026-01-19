@@ -1174,7 +1174,7 @@ export default function Drivers() {
                     </tr>
                   </thead>
                   <tbody>
-                    {transactions.map((txn) => (
+                    {transactions.filter((item)=>item.type !== "ADVANCE_PAYMENT").map((txn) => (
                       <tr key={txn.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
                         <td style={historyTdStyle}>{formatDate(txn.date)}</td>
                         <td style={historyTdStyle}>
@@ -1238,12 +1238,12 @@ export default function Drivers() {
                 <div style={{ display: "flex", gap: "24px" }}>
                   <div style={{ textAlign: "right" }}>
                     <div style={{ fontSize: "12px", color: "#9ca3af", marginBottom: "2px" }}>Total Quantity</div>
-                    <div style={{ fontSize: "16px", fontWeight: "700", color: "#111827" }}>{transactions.reduce((sum, t) => sum + Number(t.amount), 0).toFixed(2)} Kg</div>
+                    <div style={{ fontSize: "16px", fontWeight: "700", color: "#111827" }}>{transactions.filter((item)=>item.type !== "ADVANCE_PAYMENT").reduce((sum, t) => sum + Number(t.amount), 0).toFixed(2)} Kg</div>
                   </div>
                   {historyTab !== "WEIGHT_LOSS" && (
                     <div style={{ textAlign: "right" }}>
                       <div style={{ fontSize: "12px", color: "#9ca3af", marginBottom: "2px" }}>Total Amount</div>
-                      <div style={{ fontSize: "16px", fontWeight: "700", color: "#111827" }}>₹{transactions.reduce((sum, t) => sum + Number(t.totalAmount || 0), 0).toLocaleString("en-IN")}</div>
+                      <div style={{ fontSize: "16px", fontWeight: "700", color: "#111827" }}>₹{transactions.filter((item)=>item.type !== "ADVANCE_PAYMENT").reduce((sum, t) => sum + Number(t.totalAmount || 0), 0).toLocaleString("en-IN")}</div>
                     </div>
                   )}
                 </div>
