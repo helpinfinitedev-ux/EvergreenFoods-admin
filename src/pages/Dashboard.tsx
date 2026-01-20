@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { adminAPI, expenseAPI, companyAPI } from "../api";
-import DatePicker from "react-datepicker";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import dayjs, { Dayjs } from "dayjs";
 
 interface ExpenseSummary {
   cashTotal: number;
@@ -15,15 +18,6 @@ interface TotalCapital {
   todayCash: number;
   cashLastUpdatedAt: string | null;
 }
-
-const formatDateInput = (value: Date) => {
-  const year = value.getFullYear();
-  const month = String(value.getMonth() + 1).padStart(2, "0");
-  const day = String(value.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const parseDateInput = (value: string) => new Date(`${value}T00:00:00`);
 
 export default function Dashboard() {
   const [stats, setStats] = useState<any>(null);
@@ -62,7 +56,7 @@ export default function Dashboard() {
         setTotalUdhaar(udhaar);
   
         // Set Total Companies
-        setTotalCompanies(borrowedRes.data?.length || 0);
+        setTotalCompanies(Number(companiesRes.data?.total || 0));
       } catch (err) {
         console.error("Failed to load stats", err);
       } finally {
@@ -82,11 +76,18 @@ export default function Dashboard() {
       <div style = {{display:"flex", alignItems:"center", gap:"10px"}}>
 
       <h1 style={{ marginBottom: "30px", fontSize: "28px", fontWeight: "700" }}>Dashboard</h1>
-      <input
-        type="date"
-        value={formatDateInput(date)}
-        onChange={(e) => setDate(parseDateInput(e.target.value))}
-      />
+      <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <DatePicker
+          value={dayjs(date)}
+          onChange={(newValue: Dayjs | null) => {
+            if (newValue) {
+              setDate(newValue.toDate());
+            }
+          }}
+          slotProps={{ textField: { size: "small" } }}
+          disableFuture
+        />
+      </LocalizationProvider>
       </div>
 
       {/* Main Stats Grid */}
