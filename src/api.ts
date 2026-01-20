@@ -20,7 +20,10 @@ export const authAPI = {
 };
 
 export const adminAPI = {
-  getDashboard: () => api.get("/admin/dashboard"),
+  getDashboard: (params?: { date?: number }) => {
+    console.log(params);
+    return api.get("/admin/dashboard", { params });
+  },
   getDrivers: () => api.get("/admin/drivers"),
   createDriver: (data: { name: string; mobile: string; password: string; baseSalary?: number }) => api.post("/admin/drivers", data),
   updateDriver: (id: string, data: { password?: string; baseSalary?: number }) => api.put(`/admin/drivers/${id}`, data),
@@ -82,7 +85,7 @@ export const notificationAPI = {
 
 export const expenseAPI = {
   getAll: (params?: { type?: string; startDate?: string; endDate?: string; category?: string }) => api.get("/admin/expenses", { params }),
-  getSummary: (params?: { startDate?: string; endDate?: string }) => api.get("/admin/expenses/summary", { params }),
+    getSummary: (params?: { startDate?: string; endDate?: string }) => api.get("/admin/expenses/summary", { params }),
   create: (data: { type: "CASH" | "BANK"; amount: number; description: string; category?: string; date?: string; bankId?: string }) => api.post("/admin/expenses", data),
   update: (id: string, data: { type?: string; amount?: number; description?: string; category?: string; date?: string }) => api.put(`/admin/expenses/${id}`, data),
   delete: (id: string) => api.delete(`/admin/expenses/${id}`),

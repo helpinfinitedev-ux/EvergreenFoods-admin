@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { adminAPI, expenseAPI, companyAPI } from "../api";
+import DatePicker from "react-datepicker";
 
 interface ExpenseSummary {
   cashTotal: number;
@@ -22,51 +23,58 @@ export default function Dashboard() {
   const [totalUdhaar, setTotalUdhaar] = useState(0);
   const [totalCompanies, setTotalCompanies] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [date,setDate] = useState(new Date())
 
   useEffect(() => {
-    loadStats();
-  }, []);
+    const loadStats = async (date:Date) => {
+      try {
+        // Get today's expenses
+        const endDate = date;
+        const startDate = date
+        startDate.setHours(0, 0, 0, 0);
+  
+        const [dashboardRes, expenseRes, capitalRes, borrowedRes, companiesRes] = await Promise.all([
+          adminAPI.getDashboard({date: date.getTime()}),
+          expenseAPI.getSummary({
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
+          }),
+          adminAPI.getTotalCapital(),
+          adminAPI.getBorrowedInfo(),
+          companyAPI.getAll({ page: 1 }),
+        ]);
+  
+        setStats(dashboardRes.data);
+        setExpenseSummary(expenseRes.data);
+        setTotalCapital(capitalRes.data);
+  
+        // Calculate Total Udhaar
+        const udhaar = (borrowedRes.data || []).reduce((sum: number, item: any) => sum + Number(item.borrowedMoney || 0), 0);
+        setTotalUdhaar(udhaar);
+  
+        // Set Total Companies
+        setTotalCompanies(borrowedRes.data?.length || 0);
+      } catch (err) {
+        console.error("Failed to load stats", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    console.log(date)
+    loadStats(date);
+  }, [date]);
 
-  const loadStats = async () => {
-    try {
-      // Get today's expenses
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setHours(0, 0, 0, 0);
-
-      const [dashboardRes, expenseRes, capitalRes, borrowedRes, companiesRes] = await Promise.all([
-        adminAPI.getDashboard(),
-        expenseAPI.getSummary({
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-        }),
-        adminAPI.getTotalCapital(),
-        adminAPI.getBorrowedInfo(),
-        companyAPI.getAll({ page: 1 }),
-      ]);
-
-      setStats(dashboardRes.data);
-      setExpenseSummary(expenseRes.data);
-      setTotalCapital(capitalRes.data);
-
-      // Calculate Total Udhaar
-      const udhaar = (borrowedRes.data || []).reduce((sum: number, item: any) => sum + Number(item.borrowedMoney || 0), 0);
-      setTotalUdhaar(udhaar);
-
-      // Set Total Companies
-      setTotalCompanies(borrowedRes.data?.length || 0);
-    } catch (err) {
-      console.error("Failed to load stats", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+ 
 
   if (loading) return <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>Loading...</div>;
   console.log(stats);
   return (
     <div style={{ padding: "30px" }}>
+      <div style = {{display:"flex", alignItems:"center", gap:"10px"}}>
+
       <h1 style={{ marginBottom: "30px", fontSize: "28px", fontWeight: "700" }}>Dashboard</h1>
+      <input  type="date" value={date.toISOString().split('T')[0]} onChange={(e) => setDate(new Date(e.target.value))} />
+      </div>
 
       {/* Main Stats Grid */}
       <div
