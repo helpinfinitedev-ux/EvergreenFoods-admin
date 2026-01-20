@@ -16,6 +16,15 @@ interface TotalCapital {
   cashLastUpdatedAt: string | null;
 }
 
+const formatDateInput = (value: Date) => {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const parseDateInput = (value: string) => new Date(`${value}T00:00:00`);
+
 export default function Dashboard() {
   const [stats, setStats] = useState<any>(null);
   const [expenseSummary, setExpenseSummary] = useState<ExpenseSummary | null>(null);
@@ -73,7 +82,11 @@ export default function Dashboard() {
       <div style = {{display:"flex", alignItems:"center", gap:"10px"}}>
 
       <h1 style={{ marginBottom: "30px", fontSize: "28px", fontWeight: "700" }}>Dashboard</h1>
-      <input  type="date" value={date.toISOString().split('T')[0]} onChange={(e) => setDate(new Date(e.target.value))} />
+      <input
+        type="date"
+        value={formatDateInput(date)}
+        onChange={(e) => setDate(parseDateInput(e.target.value))}
+      />
       </div>
 
       {/* Main Stats Grid */}
