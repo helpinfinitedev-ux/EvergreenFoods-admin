@@ -20,7 +20,7 @@ export const authAPI = {
 };
 
 export const adminAPI = {
-  getDashboard: (params?: { date?: number }) => {
+  getDashboard: (params?: { start?: number; end?: number }) => {
     console.log(params);
     return api.get("/admin/dashboard", { params });
   },

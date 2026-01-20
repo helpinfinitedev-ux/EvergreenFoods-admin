@@ -32,12 +32,15 @@ export default function Dashboard() {
     const loadStats = async (date:Date) => {
       try {
         // Get today's expenses
-        const endDate = date;
-        const startDate = date
+        const startDate = new Date(date);
         startDate.setHours(0, 0, 0, 0);
+        
+        const endDate = new Date(date);
+        endDate.setHours(23, 59, 59, 999);
+        
   
         const [dashboardRes, expenseRes, capitalRes, borrowedRes, companiesRes] = await Promise.all([
-          adminAPI.getDashboard({date: date.getTime()}),
+          adminAPI.getDashboard({start: startDate.getTime(), end: endDate.getTime()}),
           expenseAPI.getSummary({
             startDate: startDate.toISOString(),
             endDate: endDate.toISOString(),

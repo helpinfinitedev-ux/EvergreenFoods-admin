@@ -112,6 +112,7 @@ export default function Bought() {
     if (!editingTransaction) return;
 
     setSaving(true);
+    console.log(editingTransaction)
     try {
       const response = await adminAPI.updateTransaction(editingTransaction.id, {
         amount: editAmount ? Number(editAmount) : undefined,
