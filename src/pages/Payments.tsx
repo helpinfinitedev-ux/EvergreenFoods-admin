@@ -311,6 +311,7 @@ export default function Payments() {
               <th style={thStyle}>Date</th>
               <th style={thStyle}>Method</th>
               <th style={thStyle}>Company</th>
+              <th style={thStyle}>Customer</th>
               <th style={thStyle}>Description</th>
               <th style={thStyle}>Amount</th>
               <th style={thStyle}>Actions</th>
@@ -354,6 +355,15 @@ export default function Payments() {
                       </div>
                     ) : (
                       payment.companyName || "-"
+                    )}
+                  </td>
+                  <td style={tdStyle}>
+                    {payment.customer ? (
+                      <div>
+                        <div style={{ fontWeight: "600", color: "#111827" }}>{payment.customer.name}</div>
+                      </div>
+                    ) : (
+                      "-"
                     )}
                   </td>
                   <td style={tdStyle}>{payment.description || "-"}</td>
