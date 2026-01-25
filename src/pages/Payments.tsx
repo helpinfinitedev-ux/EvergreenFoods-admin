@@ -238,7 +238,7 @@ export default function Payments() {
   return (
     <div style={{ padding: "30px", overflow: "auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "30px" }}>
-        <h1 style={{ fontSize: "28px", fontWeight: "700" }}>Payments To Companies</h1>
+        <h1 style={{ fontSize: "28px", fontWeight: "700" }}>Payments</h1>
         <div style={{ display: "flex", gap: "10px" }}>
           <button
             onClick={downloadPdf}

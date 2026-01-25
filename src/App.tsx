@@ -92,7 +92,7 @@ function ProtectedLayout() {
             💸 Expenses
           </NavItem>
           <NavItem active={location.pathname === "/payments"} onClick={() => navigate("/payments")}>
-            💳 Payments To Companies
+            💳 Payments
           </NavItem>
           <NavItem active={location.pathname === "/companies"} onClick={() => navigate("/companies")}>
             🏢 My Companies
