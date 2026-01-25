@@ -1,7 +1,26 @@
 import { useEffect, useState } from "react";
-import { adminAPI } from "../api";
+import { adminAPI, companyAPI, customerAPI } from "../api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+
+type EntityType = "company" | "customer" | "driver";
+
+interface Company {
+  id: string;
+  name: string;
+}
+
+interface Customer {
+  id: string;
+  name: string;
+  mobile: string;
+}
+
+interface Driver {
+  id: string;
+  name: string;
+  mobile: string;
+}
 
 export default function Bought() {
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -16,6 +35,14 @@ export default function Bought() {
     companyName: "",
   });
 
+  // Entity selection state
+  const [entityType, setEntityType] = useState<EntityType>("company");
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [selectedEntityId, setSelectedEntityId] = useState("");
+  const [loadingEntities, setLoadingEntities] = useState(false);
+
   // Edit modal state
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<any>(null);
@@ -27,7 +54,37 @@ export default function Bought() {
 
   useEffect(() => {
     loadTransactions(1, false);
+    loadEntities(entityType);
   }, []);
+
+  useEffect(() => {
+    loadEntities(entityType);
+    setSelectedEntityId("");
+  }, [entityType]);
+
+  const loadEntities = async (type: EntityType) => {
+    setLoadingEntities(true);
+    try {
+      switch (type) {
+        case "company":
+          const companyRes = await companyAPI.getAll();
+          setCompanies(companyRes.data?.companies || companyRes.data || []);
+          break;
+        case "customer":
+          const customerRes = await customerAPI.getAll();
+          setCustomers(customerRes.data || []);
+          break;
+        case "driver":
+          const driverRes = await adminAPI.getDrivers();
+          setDrivers(driverRes.data || []);
+          break;
+      }
+    } catch (err) {
+      console.error(`Failed to load ${type}s`, err);
+    } finally {
+      setLoadingEntities(false);
+    }
+  };
 
   const loadTransactions = async (nextPage: number, append: boolean) => {
     try {
@@ -41,6 +98,22 @@ export default function Bought() {
       if (filter.endDate) params.endDate = filter.endDate;
       if (filter.detail) params.details = filter.detail;
       if (filter.companyName) params.companyName = filter.companyName;
+
+      // Add entity filter based on selection
+      if (selectedEntityId) {
+        switch (entityType) {
+          case "company":
+            params.companyId = selectedEntityId;
+            break;
+          case "customer":
+            params.customerId = selectedEntityId;
+            break;
+          case "driver":
+            params.driverId = selectedEntityId;
+            break;
+        }
+      }
+
       params.page = nextPage;
 
       const response = await adminAPI.getTransactions(params);
@@ -64,6 +137,7 @@ export default function Bought() {
 
   const clearFilter = () => {
     setFilter({ startDate: "", endDate: "", detail: "", companyName: "" });
+    setSelectedEntityId("");
     setPage(1);
     loadTransactions(1, false);
   };
@@ -76,6 +150,11 @@ export default function Bought() {
   // Edit modal handlers
   const openEditModal = (tx: any) => {
     setEditingTransaction(tx);
+    const entityType = tx.customerId ? "customer" : tx.companyId ? "company" : tx.driverId ? "driver" : undefined;
+    if (!entityType) {
+      return;
+    }
+    setEntityType(entityType);
     setEditAmount(tx.amount?.toString() || "");
     setEditRate(tx.rate?.toString() || "");
     setEditTotalAmount(tx.totalAmount?.toString() || "");
@@ -112,7 +191,7 @@ export default function Bought() {
     if (!editingTransaction) return;
 
     setSaving(true);
-    console.log(editingTransaction)
+    console.log(editingTransaction);
     try {
       const response = await adminAPI.updateTransaction(editingTransaction.id, {
         amount: editAmount ? Number(editAmount) : undefined,
@@ -120,6 +199,9 @@ export default function Bought() {
         totalAmount: editTotalAmount ? Number(editTotalAmount) : undefined,
         details: editDetails.trim() === "" ? null : editDetails,
         companyId: editingTransaction.companyId,
+        customerId: editingTransaction.customerId,
+        driverId: editingTransaction.driverId,
+        entityType: editingTransaction.entityType,
       });
 
       // Update local state
@@ -232,6 +314,19 @@ export default function Bought() {
     doc.save(fileName);
   };
 
+  const getEntityList = () => {
+    switch (entityType) {
+      case "company":
+        return companies.map((c) => ({ id: c.id, name: c.name }));
+      case "customer":
+        return customers.map((c) => ({ id: c.id, name: `${c.name} (${c.mobile})` }));
+      case "driver":
+        return drivers.map((d) => ({ id: d.id, name: `${d.name} (${d.mobile})` }));
+      default:
+        return [];
+    }
+  };
+
   if (loading) return <div style={{ padding: "40px", textAlign: "center" }}>Loading...</div>;
 
   return (
@@ -309,6 +404,74 @@ export default function Bought() {
         </div>
       </div>
 
+      {/* Entity Type Selection */}
+      <div
+        style={{
+          background: "white",
+          padding: "20px",
+          borderRadius: "12px",
+          marginBottom: "16px",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+          border: "1px solid #e5e7eb",
+        }}>
+        <label style={{ display: "block", marginBottom: "12px", fontWeight: "600", fontSize: "14px", color: "#374151" }}>Bought From</label>
+        <div style={{ display: "flex", gap: "24px", flexWrap: "wrap", alignItems: "center" }}>
+          {/* Radio Buttons */}
+          <div style={{ display: "flex", gap: "20px" }}>
+            {(["company", "customer", "driver"] as EntityType[]).map((type) => (
+              <label
+                key={type}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  cursor: "pointer",
+                  padding: "10px 16px",
+                  borderRadius: "8px",
+                  border: entityType === type ? "2px solid #3b82f6" : "1px solid #d1d5db",
+                  background: entityType === type ? "#eff6ff" : "white",
+                  transition: "all 0.2s",
+                }}>
+                <input
+                  type="radio"
+                  name="entityType"
+                  value={type}
+                  checked={entityType === type}
+                  onChange={() => setEntityType(type)}
+                  style={{ accentColor: "#3b82f6", width: "16px", height: "16px" }}
+                />
+                <span style={{ fontWeight: entityType === type ? "600" : "500", color: entityType === type ? "#1d4ed8" : "#374151", textTransform: "capitalize" }}>{type}</span>
+              </label>
+            ))}
+          </div>
+
+          {/* Entity Dropdown */}
+          <div style={{ flex: 1, minWidth: "250px" }}>
+            <select
+              value={selectedEntityId}
+              onChange={(e) => setSelectedEntityId(e.target.value)}
+              disabled={loadingEntities}
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                border: "1px solid #d1d5db",
+                borderRadius: "8px",
+                fontSize: "14px",
+                outline: "none",
+                cursor: loadingEntities ? "wait" : "pointer",
+                background: loadingEntities ? "#f3f4f6" : "white",
+              }}>
+              <option value="">All {entityType}s</option>
+              {getEntityList().map((entity) => (
+                <option key={entity.id} value={entity.id}>
+                  {entity.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
       {/* Filters */}
       <div
         style={{
@@ -378,7 +541,7 @@ export default function Bought() {
             />
           </div>
           <div style={{ flex: "1", minWidth: "200px" }}>
-            <label style={{ display: "block", marginBottom: "8px", fontWeight: "500", fontSize: "14px", color: "#374151" }}>Company</label>
+            <label style={{ display: "block", marginBottom: "8px", fontWeight: "500", fontSize: "14px", color: "#374151" }}>Company Name</label>
             <input
               type="text"
               value={filter.companyName}
@@ -496,7 +659,7 @@ export default function Bought() {
                     <div style={{ fontWeight: "500", color: "#374151" }}>{tx.driver?.name || "-"}</div>
                   </td>
                   <td style={tdStyle}>
-                    <div style={{ fontWeight: "500", color: "#374151" }}>{tx?.companyName || "-"}</div>
+                    <div style={{ fontWeight: "500", color: "#374151" }}>{tx?.companyName || tx?.company?.name || "-"}</div>
                     {tx.customer?.phone && <div style={{ fontSize: "12px", color: "#9ca3af" }}>{tx.customer.phone}</div>}
                   </td>
                   <td style={tdStyle}>

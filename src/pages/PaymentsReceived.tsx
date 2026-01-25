@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
-import { adminAPI, bankAPI } from "../api";
+import { adminAPI, bankAPI, companyAPI, customerAPI } from "../api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import Box from "@mui/material/Box";
+import { TabPanel, a11yProps, StyledTabs, StyledTab, ListContainer, ListItem, ListItemName, ListItemSecondary, ListItemAmount, EmptyState, SearchInput } from "../components/EntityTabs";
+import ReceivePaymentModal, { type SelectedEntity, type EntityType, type Bank } from "../components/ReceivePaymentModal";
 
 interface Customer {
   id: string;
@@ -12,54 +15,77 @@ interface Customer {
   updatedAt?: string;
 }
 
-interface Bank {
+interface Company {
   id: string;
   name: string;
-  label: string;
-  balance: number;
+  mobile?: string | null;
+  address?: string | null;
+  amountDue: number;
+}
+
+interface Driver {
+  id: string;
+  name: string;
+  mobile: string;
+  status: string;
+  baseSalary?: number;
 }
 
 export default function PaymentsReceived() {
+  const [tabValue, setTabValue] = useState(0);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [filterDates, setFilterDates] = useState({ startDate: "", endDate: "" });
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [companySearch, setCompanySearch] = useState("");
+  const [driverSearch, setDriverSearch] = useState("");
 
-  const [method, setMethod] = useState<"CASH" | "BANK">("CASH");
-  const [amount, setAmount] = useState("");
-  const [bankId, setBankId] = useState("");
+  // Modal state
+  const [showModal, setShowModal] = useState(false);
+  const [selectedEntity, setSelectedEntity] = useState<SelectedEntity | null>(null);
   const [totalCash, setTotalCash] = useState(0);
 
   useEffect(() => {
     loadCustomers();
+    loadCompanies();
+    loadDrivers();
     loadBanks();
   }, []);
 
-  useEffect(() => {
-    if (method === "BANK" && !bankId) {
-      setBankId(banks[0]?.id || "");
-    }
-    if (method === "CASH" && bankId) {
-      setBankId("");
-    }
-  }, [method, banks, bankId]);
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+  };
 
   const loadCustomers = async () => {
     try {
       setLoading(true);
-      const res = await adminAPI.getDueCustomers({
-        startDate: filterDates.startDate || undefined,
-        endDate: filterDates.endDate || undefined,
-      });
+      const res = await customerAPI.getAll();
       setCustomers(res.data || []);
     } catch (err) {
       console.error("Failed to load customers", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadCompanies = async () => {
+    try {
+      const res = await companyAPI.getAll();
+      setCompanies(res.data?.companies || res.data || []);
+    } catch (err) {
+      console.error("Failed to load companies", err);
+    }
+  };
+
+  const loadDrivers = async () => {
+    try {
+      const res = await adminAPI.getDrivers();
+      setDrivers(res.data || []);
+    } catch (err) {
+      console.error("Failed to load drivers", err);
     }
   };
 
@@ -81,54 +107,77 @@ export default function PaymentsReceived() {
     }
   };
 
-  const openModal = (customer: Customer) => {
-    setSelectedCustomer(customer);
-    setMethod("CASH");
-    setAmount("");
-    setBankId(banks[0]?.id || "");
+  const openModal = (entity: SelectedEntity) => {
+    setSelectedEntity(entity);
     loadTotalCash();
     setShowModal(true);
   };
 
   const closeModal = () => {
     setShowModal(false);
-    setSelectedCustomer(null);
+    setSelectedEntity(null);
   };
 
-  const submitPayment = async () => {
-    if (!selectedCustomer) return;
-    const amt = Number(amount);
-    if (!amount || Number.isNaN(amt) || amt <= 0) {
-      alert("Please enter a valid amount");
-      return;
-    }
-    if (method === "BANK" && !bankId) {
-      alert("Please select a bank");
-      return;
-    }
-
-    try {
-      await adminAPI.receiveCustomerPayment(selectedCustomer.id, {
-        amount: amt,
-        method,
-        bankId: method === "BANK" ? bankId : undefined,
-      });
-      closeModal();
-      loadCustomers();
-    } catch (err: any) {
-      alert(err.response?.data?.error || "Failed to receive payment");
-    }
+  const handleCustomerClick = (customer: Customer) => {
+    openModal({
+      id: customer.id,
+      name: customer.name,
+      balance: customer.balance,
+      type: "customer",
+    });
   };
 
-  if (loading) return <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>Loading...</div>;
-
-  const handleFilter = () => {
-    loadCustomers();
+  const handleCompanyClick = (company: Company) => {
+    openModal({
+      id: company.id,
+      name: company.name,
+      balance: company.amountDue,
+      type: "company",
+    });
   };
 
-  const clearFilter = () => {
-    setFilterDates({ startDate: "", endDate: "" });
-    setTimeout(() => loadCustomers(), 0);
+  const handleDriverClick = (driver: Driver) => {
+    openModal({
+      id: driver.id,
+      name: driver.name,
+      balance: 0, // Drivers don't have a due amount
+      type: "driver",
+    });
+  };
+
+  const handlePaymentSubmit = async (data: { entityId: string; entityType: EntityType; amount: number; method: "CASH" | "BANK"; bankId?: string }) => {
+    // Call appropriate API based on entity type
+    switch (data.entityType) {
+      case "customer":
+        await adminAPI.receiveCustomerPayment({
+          driverId: data.entityId,
+          amount: data.amount,
+          method: data.method,
+          bankId: data.bankId,
+        });
+        loadCustomers();
+        break;
+      case "company":
+        // TODO: Add company payment API when available
+        await adminAPI.receiveCustomerPayment({
+          companyId: data.entityId,
+          amount: data.amount,
+          method: data.method,
+          bankId: data.bankId,
+        });
+        loadCompanies();
+        break;
+      case "driver":
+        // TODO: Add driver payment API when available
+        await adminAPI.receiveCustomerPayment({
+          driverId: data.entityId,
+          amount: data.amount,
+          method: data.method,
+          bankId: data.bankId,
+        });
+        loadDrivers();
+        break;
+    }
   };
 
   const formatDatePdf = (dateString?: string) => {
@@ -160,10 +209,7 @@ export default function PaymentsReceived() {
       doc.setFont("helvetica", "normal");
       doc.text("Payments Received (Pending Due)", pageWidth / 2, 26, { align: "center" });
 
-      const periodText =
-        filterDates.startDate || filterDates.endDate
-          ? "Period: " + (filterDates.startDate || "Start") + " to " + (filterDates.endDate || "Present")
-          : "Report Generated: " + new Date().toLocaleDateString("en-IN");
+      const periodText = "Report Generated: " + new Date().toLocaleDateString("en-IN");
 
       doc.setFontSize(10);
       doc.text(periodText, 14, 36);
@@ -209,6 +255,23 @@ export default function PaymentsReceived() {
     }
   };
 
+  const filteredCustomers = customers.filter((c) => {
+    const query = searchQuery.toLowerCase();
+    return c.name.toLowerCase().includes(query) || c.mobile.includes(query);
+  });
+
+  const filteredCompanies = companies.filter((c) => {
+    const query = companySearch.toLowerCase();
+    return c.name.toLowerCase().includes(query) || (c.mobile && c.mobile.includes(query));
+  });
+
+  const filteredDrivers = drivers.filter((d) => {
+    const query = driverSearch.toLowerCase();
+    return d.name.toLowerCase().includes(query) || d.mobile.includes(query);
+  });
+
+  if (loading) return <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>Loading...</div>;
+
   return (
     <div style={{ padding: "30px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "30px" }}>
@@ -234,297 +297,88 @@ export default function PaymentsReceived() {
         </button>
       </div>
 
-      {/* Filters */}
-      <div
-        style={{
-          background: "white",
-          padding: "16px",
-          borderRadius: "12px",
-          marginBottom: "16px",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-          border: "1px solid #e5e7eb",
-        }}>
-        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "end" }}>
-          <div style={{ flex: "1", minWidth: "160px" }}>
-            <label style={{ display: "block", marginBottom: "8px", fontWeight: "700", fontSize: "13px", color: "#374151" }}>Start Date</label>
-            <input type="date" value={filterDates.startDate} onChange={(e) => setFilterDates({ ...filterDates, startDate: e.target.value })} style={filterInputStyle} />
-          </div>
-          <div style={{ flex: "1", minWidth: "160px" }}>
-            <label style={{ display: "block", marginBottom: "8px", fontWeight: "700", fontSize: "13px", color: "#374151" }}>End Date</label>
-            <input type="date" value={filterDates.endDate} onChange={(e) => setFilterDates({ ...filterDates, endDate: e.target.value })} style={filterInputStyle} />
-          </div>
-          <button onClick={handleFilter} style={applyBtnStyle}>
-            Apply Filter
-          </button>
-          <button onClick={clearFilter} style={clearBtnStyle}>
-            Clear
-          </button>
-        </div>
-      </div>
+      {/* Tabs */}
+      <Box sx={{ width: "100%", mb: 3 }}>
+        <StyledTabs value={tabValue} onChange={handleTabChange} aria-label="entity tabs">
+          <StyledTab label="Companies" {...a11yProps(0)} />
+          <StyledTab label="Customers" {...a11yProps(1)} />
+          <StyledTab label="Drivers" {...a11yProps(2)} />
+        </StyledTabs>
 
-      {/* Search Bar */}
-      <div style={{ marginBottom: "16px" }}>
-        <input
-          type="text"
-          placeholder="Search by name or mobile..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "12px 16px",
-            fontSize: "15px",
-            border: "1px solid #d1d5db",
-            borderRadius: "8px",
-            outline: "none",
-            boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-          }}
-        />
-      </div>
-
-      <div style={{ background: "white", borderRadius: "8px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}>
-              <th style={thStyle}>Customer</th>
-              <th style={thStyle}>Mobile</th>
-              <th style={thStyle}>Due Amount</th>
-              <th style={thStyle}>Last Updated</th>
-              <th style={thStyle}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {customers.length === 0 ? (
-              <tr>
-                <td colSpan={5} style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
-                  No pending balances
-                </td>
-              </tr>
+        {/* Companies Tab */}
+        <TabPanel value={tabValue} index={0}>
+          <SearchInput type="text" placeholder="Search companies by name or mobile..." value={companySearch} onChange={(e) => setCompanySearch(e.target.value)} />
+          <ListContainer>
+            {filteredCompanies.length === 0 ? (
+              <EmptyState>No companies found</EmptyState>
             ) : (
-              customers
-                .filter((c) => {
-                  const query = searchQuery.toLowerCase();
-                  return c.name.toLowerCase().includes(query) || c.mobile.includes(query);
-                })
-                .map((customer) => (
-                  <tr key={customer.id} style={{ borderBottom: "1px solid #e5e7eb" }}>
-                    <td style={tdStyle}>{customer.name}</td>
-                    <td style={tdStyle}>{customer.mobile}</td>
-                    <td style={{ ...tdStyle, fontWeight: "700", color: "#dc2626" }}>₹{Number(customer.balance).toLocaleString()}</td>
-                    <td style={tdStyle}>{customer.updatedAt ? new Date(customer.updatedAt).toLocaleDateString("en-IN") : "-"}</td>
-                    <td style={tdStyle}>
-                      <button
-                        onClick={() => openModal(customer)}
-                        style={{
-                          padding: "6px 12px",
-                          background: "#10b981",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "6px",
-                          cursor: "pointer",
-                          fontSize: "12px",
-                          fontWeight: "600",
-                        }}>
-                        Receive Money
-                      </button>
-                    </td>
-                  </tr>
-                ))
+              filteredCompanies.map((company) => (
+                <ListItem key={company.id} sx={{ cursor: "pointer" }} onClick={() => handleCompanyClick(company)}>
+                  <Box>
+                    <ListItemName>{company.name}</ListItemName>
+                    {company.mobile && <ListItemSecondary>• {company.mobile}</ListItemSecondary>}
+                    {company.address && <ListItemSecondary>• {company.address}</ListItemSecondary>}
+                  </Box>
+                  <ListItemAmount positive={Number(company.amountDue) <= 0}>₹{Number(company.amountDue || 0).toLocaleString()}</ListItemAmount>
+                </ListItem>
+              ))
             )}
-          </tbody>
-        </table>
-      </div>
+          </ListContainer>
+        </TabPanel>
 
-      {showModal && selectedCustomer && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}>
-          <div
-            style={{
-              background: "white",
-              padding: "30px",
-              borderRadius: "12px",
-              width: "100%",
-              maxWidth: "520px",
-            }}>
-            <h2 style={{ marginBottom: "8px", fontSize: "20px", fontWeight: "700" }}>Receive Payment</h2>
-            <div style={{ marginBottom: "20px", color: "#6b7280", fontSize: "13px" }}>
-              {selectedCustomer.name} • Due ₹{Number(selectedCustomer.balance).toLocaleString()}
-            </div>
+        {/* Customers Tab */}
+        <TabPanel value={tabValue} index={1}>
+          <SearchInput type="text" placeholder="Search customers by name or mobile..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+          <ListContainer>
+            {filteredCustomers.length === 0 ? (
+              <EmptyState>No customers found</EmptyState>
+            ) : (
+              filteredCustomers.map((customer) => (
+                <ListItem key={customer.id} sx={{ cursor: "pointer" }} onClick={() => handleCustomerClick(customer)}>
+                  <Box>
+                    <ListItemName>{customer.name}</ListItemName>
+                    <ListItemSecondary>• {customer.mobile}</ListItemSecondary>
+                    {customer.address && <ListItemSecondary>• {customer.address}</ListItemSecondary>}
+                  </Box>
+                  <ListItemAmount positive={Number(customer.balance) <= 0}>₹{Number(customer.balance || 0).toLocaleString()}</ListItemAmount>
+                </ListItem>
+              ))
+            )}
+          </ListContainer>
+        </TabPanel>
 
-            <div style={{ marginBottom: "20px" }}>
-              <label style={labelStyle}>Method *</label>
-              <div style={{ display: "flex", gap: "12px" }}>
-                <button
-                  onClick={() => setMethod("CASH")}
-                  style={{
-                    flex: 1,
-                    padding: "14px",
-                    border: method === "CASH" ? "2px solid #f59e0b" : "1px solid #ddd",
-                    borderRadius: "8px",
-                    background: method === "CASH" ? "#fef3c7" : "white",
-                    cursor: "pointer",
-                    fontWeight: "600",
-                    color: method === "CASH" ? "#92400e" : "#374151",
-                  }}>
-                  💵 Cash
-                </button>
-                <button
-                  onClick={() => setMethod("BANK")}
-                  style={{
-                    flex: 1,
-                    padding: "14px",
-                    border: method === "BANK" ? "2px solid #3b82f6" : "1px solid #ddd",
-                    borderRadius: "8px",
-                    background: method === "BANK" ? "#eff6ff" : "white",
-                    cursor: "pointer",
-                    fontWeight: "600",
-                    color: method === "BANK" ? "#2563eb" : "#374151",
-                  }}>
-                  🏦 Bank
-                </button>
-              </div>
-              {method === "CASH" && <div style={{ marginTop: "8px", fontSize: "13px", color: "#059669", fontWeight: "600" }}>Available Cash: ₹{totalCash.toLocaleString()}</div>}
-            </div>
-
-            {method === "BANK" && (
-              <div style={{ marginBottom: "20px" }}>
-                <label style={labelStyle}>Bank *</label>
-                <select value={bankId} onChange={(e) => setBankId(e.target.value)} style={inputStyle}>
-                  {banks.length === 0 ? (
-                    <option value="">No banks available</option>
-                  ) : (
-                    banks.map((bank) => (
-                      <option key={bank.id} value={bank.id}>
-                        {bank.name} ({bank.label})
-                      </option>
-                    ))
+        {/* Drivers Tab */}
+        <TabPanel value={tabValue} index={2}>
+          <SearchInput type="text" placeholder="Search drivers by name or mobile..." value={driverSearch} onChange={(e) => setDriverSearch(e.target.value)} />
+          <ListContainer>
+            {filteredDrivers.length === 0 ? (
+              <EmptyState>No drivers found</EmptyState>
+            ) : (
+              filteredDrivers.map((driver) => (
+                <ListItem key={driver.id} sx={{ cursor: "pointer" }} onClick={() => handleDriverClick(driver)}>
+                  <Box>
+                    <ListItemName>{driver.name}</ListItemName>
+                    <ListItemSecondary>• {driver.mobile}</ListItemSecondary>
+                    <ListItemSecondary>
+                      • <span style={{ color: driver.status === "ACTIVE" ? "#10b981" : "#ef4444", fontWeight: 600 }}>{driver.status}</span>
+                    </ListItemSecondary>
+                  </Box>
+                  {driver.baseSalary !== undefined && (
+                    <Box sx={{ textAlign: "right" }}>
+                      <span style={{ fontSize: "13px", color: "#6b7280" }}>Base Salary</span>
+                      <br />
+                      <span style={{ fontWeight: 600, color: "#111827" }}>₹{Number(driver.baseSalary || 0).toLocaleString()}</span>
+                    </Box>
                   )}
-                </select>
-                {bankId &&
-                  (() => {
-                    const selectedBank = banks.find((b) => b.id === bankId);
-                    return selectedBank ? (
-                      <div style={{ marginTop: "8px", fontSize: "13px", color: "#059669", fontWeight: "600" }}>Available Balance: ₹{Number(selectedBank.balance || 0).toLocaleString()}</div>
-                    ) : null;
-                  })()}
-              </div>
+                </ListItem>
+              ))
             )}
+          </ListContainer>
+        </TabPanel>
+      </Box>
 
-            <div style={{ marginBottom: "24px" }}>
-              <label style={labelStyle}>Amount (₹) *</label>
-              <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Enter amount" style={inputStyle} />
-            </div>
-
-            <div style={{ display: "flex", gap: "12px" }}>
-              <button
-                onClick={submitPayment}
-                style={{
-                  flex: 1,
-                  padding: "14px",
-                  background: "#10b981",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                  fontWeight: "600",
-                  fontSize: "14px",
-                }}>
-                Receive
-              </button>
-              <button
-                onClick={closeModal}
-                style={{
-                  flex: 1,
-                  padding: "14px",
-                  background: "#e5e7eb",
-                  color: "#374151",
-                  border: "none",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                  fontWeight: "600",
-                  fontSize: "14px",
-                }}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Reusable Payment Modal */}
+      <ReceivePaymentModal open={showModal} entity={selectedEntity} banks={banks} totalCash={totalCash} onClose={closeModal} onSubmit={handlePaymentSubmit} />
     </div>
   );
 }
-
-const thStyle: React.CSSProperties = {
-  padding: "14px 16px",
-  textAlign: "left",
-  fontSize: "13px",
-  fontWeight: "600",
-  color: "#374151",
-  textTransform: "uppercase",
-  letterSpacing: "0.5px",
-};
-
-const tdStyle: React.CSSProperties = {
-  padding: "16px",
-  fontSize: "14px",
-  color: "#6b7280",
-};
-
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  marginBottom: "8px",
-  fontWeight: "500",
-  color: "#374151",
-  fontSize: "14px",
-};
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "12px",
-  border: "1px solid #ddd",
-  borderRadius: "8px",
-  fontSize: "14px",
-  boxSizing: "border-box",
-};
-
-const filterInputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "10px 12px",
-  border: "1px solid #d1d5db",
-  borderRadius: "10px",
-  fontSize: "14px",
-  outline: "none",
-  boxSizing: "border-box",
-};
-
-const applyBtnStyle: React.CSSProperties = {
-  padding: "10px 18px",
-  background: "#3b82f6",
-  color: "white",
-  border: "none",
-  borderRadius: "10px",
-  cursor: "pointer",
-  fontWeight: "800",
-  fontSize: "14px",
-};
-
-const clearBtnStyle: React.CSSProperties = {
-  padding: "10px 18px",
-  background: "#f3f4f6",
-  color: "#374151",
-  border: "1px solid #d1d5db",
-  borderRadius: "10px",
-  cursor: "pointer",
-  fontWeight: "800",
-  fontSize: "14px",
-};
