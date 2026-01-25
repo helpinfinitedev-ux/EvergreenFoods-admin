@@ -1,20 +1,5 @@
 import { useState, useEffect, type SyntheticEvent } from "react";
-import {
-  Modal,
-  Box,
-  Typography,
-  TextField,
-  Button,
-  Tabs,
-  Tab,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  IconButton,
-  styled,
-  Autocomplete,
-} from "@mui/material";
+import { Modal, Box, Typography, TextField, Button, Tabs, Tab, FormControl, InputLabel, Select, MenuItem, IconButton, styled, Autocomplete } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 
 export interface Bank {
@@ -101,37 +86,19 @@ const StyledTab = styled(Tab)({
   },
 });
 
-const MethodButton = styled(Button)<{ selected?: boolean; methodType: "cash" | "bank" }>(
-  ({ selected, methodType }) => ({
-    flex: 1,
-    padding: "14px",
-    borderRadius: 8,
-    fontWeight: 600,
-    textTransform: "none",
-    border: selected
-      ? methodType === "cash"
-        ? "2px solid #f59e0b"
-        : "2px solid #3b82f6"
-      : "1px solid #ddd",
-    backgroundColor: selected
-      ? methodType === "cash"
-        ? "#fef3c7"
-        : "#eff6ff"
-      : "white",
-    color: selected
-      ? methodType === "cash"
-        ? "#92400e"
-        : "#2563eb"
-      : "#374151",
-    "&:hover": {
-      backgroundColor: selected
-        ? methodType === "cash"
-          ? "#fef3c7"
-          : "#eff6ff"
-        : "#f9fafb",
-    },
-  })
-);
+const MethodButton = styled(Button)<{ selected?: boolean; methodType: "cash" | "bank" }>(({ selected, methodType }) => ({
+  flex: 1,
+  padding: "14px",
+  borderRadius: 8,
+  fontWeight: 600,
+  textTransform: "none",
+  border: selected ? (methodType === "cash" ? "2px solid #f59e0b" : "2px solid #3b82f6") : "1px solid #ddd",
+  backgroundColor: selected ? (methodType === "cash" ? "#fef3c7" : "#eff6ff") : "white",
+  color: selected ? (methodType === "cash" ? "#92400e" : "#2563eb") : "#374151",
+  "&:hover": {
+    backgroundColor: selected ? (methodType === "cash" ? "#fef3c7" : "#eff6ff") : "#f9fafb",
+  },
+}));
 
 const ActionButton = styled(Button)<{ variant?: "contained" | "outlined" }>(({ variant }) => ({
   flex: 1,
@@ -163,15 +130,7 @@ const AvailableText = styled(Typography)({
   fontWeight: 600,
 });
 
-export default function PaymentModal({
-  open,
-  onClose,
-  onSubmit,
-  banks,
-  companies,
-  customers,
-  totalCash,
-}: PaymentModalProps) {
+export default function PaymentModal({ open, onClose, onSubmit, banks, companies, customers, totalCash }: PaymentModalProps) {
   const [entityType, setEntityType] = useState<EntityType>("company");
   const [method, setMethod] = useState<"CASH" | "BANK">("CASH");
   const [amount, setAmount] = useState("");
@@ -281,24 +240,14 @@ export default function PaymentModal({
             Payment Method *
           </Typography>
           <Box display="flex" gap={1.5}>
-            <MethodButton
-              selected={method === "CASH"}
-              methodType="cash"
-              onClick={() => setMethod("CASH")}
-              fullWidth>
+            <MethodButton selected={method === "CASH"} methodType="cash" onClick={() => setMethod("CASH")} fullWidth>
               💵 Cash
             </MethodButton>
-            <MethodButton
-              selected={method === "BANK"}
-              methodType="bank"
-              onClick={() => setMethod("BANK")}
-              fullWidth>
+            <MethodButton selected={method === "BANK"} methodType="bank" onClick={() => setMethod("BANK")} fullWidth>
               🏦 Bank
             </MethodButton>
           </Box>
-          {method === "CASH" && (
-            <AvailableText>Available Cash: ₹{totalCash.toLocaleString()}</AvailableText>
-          )}
+          {method === "CASH" && <AvailableText>Available Cash: ₹{totalCash.toLocaleString()}</AvailableText>}
         </Box>
 
         {/* Bank Selection */}
@@ -306,10 +255,7 @@ export default function PaymentModal({
           <Box mb={3}>
             <FormControl fullWidth>
               <InputLabel>Bank *</InputLabel>
-              <Select
-                value={bankId}
-                label="Bank *"
-                onChange={(e) => setBankId(e.target.value)}>
+              <Select value={bankId} label="Bank *" onChange={(e) => setBankId(e.target.value)}>
                 {banks.map((bank) => (
                   <MenuItem key={bank.id} value={bank.id}>
                     {bank.name} ({bank.label})
@@ -317,24 +263,13 @@ export default function PaymentModal({
                 ))}
               </Select>
             </FormControl>
-            {selectedBank && (
-              <AvailableText>
-                Available Balance: ₹{Number(selectedBank.balance || 0).toLocaleString()}
-              </AvailableText>
-            )}
+            {selectedBank && <AvailableText>Available Balance: ₹{Number(selectedBank.balance || 0).toLocaleString()}</AvailableText>}
           </Box>
         )}
 
         {/* Amount */}
         <Box mb={3}>
-          <TextField
-            fullWidth
-            label="Amount (₹) *"
-            type="number"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="Enter amount"
-          />
+          <TextField fullWidth label="Amount (₹) *" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Enter amount" />
         </Box>
 
         {/* Entity Type Tabs */}
@@ -355,9 +290,7 @@ export default function PaymentModal({
               <Autocomplete
                 freeSolo
                 options={companies}
-                getOptionLabel={(option) =>
-                  typeof option === "string" ? option : option.name
-                }
+                getOptionLabel={(option) => (typeof option === "string" ? option : option.name)}
                 value={selectedCompany}
                 onChange={(_event, newValue) => {
                   if (typeof newValue === "string") {
@@ -382,13 +315,7 @@ export default function PaymentModal({
                     </Box>
                   </li>
                 )}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Company Name"
-                    placeholder="Search or enter company name"
-                  />
-                )}
+                renderInput={(params) => <TextField {...params} label="Company Name" placeholder="Search or enter company name" />}
               />
             </Box>
           )}
@@ -413,13 +340,7 @@ export default function PaymentModal({
                     </Box>
                   </li>
                 )}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Customer"
-                    placeholder="Search customer by name"
-                  />
-                )}
+                renderInput={(params) => <TextField {...params} label="Customer" placeholder="Search customer by name" />}
               />
             </Box>
           )}
@@ -427,27 +348,12 @@ export default function PaymentModal({
 
         {/* Description */}
         <Box mb={3}>
-          <TextField
-            fullWidth
-            label="Description"
-            multiline
-            rows={3}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Optional"
-          />
+          <TextField fullWidth label="Description" multiline rows={3} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional" />
         </Box>
 
         {/* Date */}
         <Box mb={3}>
-          <TextField
-            fullWidth
-            label="Date"
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            InputLabelProps={{ shrink: true }}
-          />
+          <TextField fullWidth label="Date" type="date" value={date} onChange={(e) => setDate(e.target.value)} InputLabelProps={{ shrink: true }} />
         </Box>
 
         {/* Actions */}
