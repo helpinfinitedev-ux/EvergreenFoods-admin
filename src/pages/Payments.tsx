@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { adminAPI, bankAPI, paymentAPI, companyAPI } from "../api";
+import { adminAPI, bankAPI, paymentAPI, companyAPI, customerAPI } from "../api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import PaymentModal, { type PaymentFormData, type Bank, type Company, type Customer } from "../components/PaymentModal";
 
 interface Payment {
   id: string;
@@ -11,30 +12,24 @@ interface Payment {
   date: string;
   bankId?: string | null;
   companyId?: string | null;
+  customerId?: string | null;
   company?: {
     id: string;
     name: string;
     amountDue: number;
   };
-}
-
-interface Company {
-  id: string;
-  name: string;
-  amountDue: number;
-}
-
-interface Bank {
-  id: string;
-  name: string;
-  label: string;
-  balance: number;
+  customer?: {
+    id: string;
+    name: string;
+    balance: number;
+  };
 }
 
 export default function Payments() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -43,34 +38,16 @@ export default function Payments() {
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [totalCash, setTotalCash] = useState(0);
 
-  // Form state
-  const [formMethod, setFormMethod] = useState<"CASH" | "BANK">("CASH");
-  const [formAmount, setFormAmount] = useState("");
-  const [formDescription, setFormDescription] = useState("");
-  const [formDate, setFormDate] = useState(new Date().toISOString().split("T")[0]);
-  const [formBankId, setFormBankId] = useState("");
-  const [formCompanyId, setFormCompanyId] = useState("");
-  const [companySearch, setCompanySearch] = useState("");
-  const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
-
   useEffect(() => {
     loadBanks();
     loadCompanies();
+    loadCustomers();
   }, []);
 
   useEffect(() => {
     loadPayments(page);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
-
-  useEffect(() => {
-    if (formMethod === "BANK" && !formBankId) {
-      setFormBankId(banks[0]?.id || "");
-    }
-    if (formMethod === "CASH" && formBankId) {
-      setFormBankId("");
-    }
-  }, [formMethod, banks, formBankId]);
 
   useEffect(() => {
     if (showModal) {
@@ -89,13 +66,19 @@ export default function Payments() {
 
   const loadCompanies = async () => {
     try {
-      // Fetch all companies (or first page, ideally all for dropdown)
-      // Assuming getAll returns { companies: [...] } or just array based on existing CompanyAPI
       const res = await companyAPI.getAll({});
-      // If the API supports pagination returning 'companies' array:
       setCompanies(res.data?.companies || []);
     } catch (err) {
       console.error("Failed to load companies", err);
+    }
+  };
+
+  const loadCustomers = async () => {
+    try {
+      const res = await customerAPI.getAll();
+      setCustomers(res.data || []);
+    } catch (err) {
+      console.error("Failed to load customers", err);
     }
   };
 
@@ -126,47 +109,19 @@ export default function Payments() {
     }
   };
 
-  const resetForm = () => {
-    setFormMethod("CASH");
-    setFormAmount("");
-    setFormDescription("");
-    setFormDate(new Date().toISOString().split("T")[0]);
-    setFormBankId("");
-    setFormCompanyId("");
-    setCompanySearch("");
-    loadTotalCash();
-  };
-
-  const handleSubmit = async () => {
-    if (!formAmount) {
-      alert("Please enter amount");
-      return;
-    }
-    const amt = Number(formAmount);
-    if (Number.isNaN(amt) || amt <= 0) {
-      alert("Please enter a valid amount");
-      return;
-    }
-    if (formMethod === "BANK" && !formBankId) {
-      alert("Please select a bank");
-      return;
-    }
-
-    try {
-      await paymentAPI.create({
-        amount: amt,
-        companyName: companySearch || undefined,
-        description: formDescription || undefined,
-        date: formDate,
-        bankId: formMethod === "BANK" ? formBankId : undefined,
-        companyId: formCompanyId || undefined,
-      });
-      setShowModal(false);
-      resetForm();
-      loadPayments(page);
-    } catch (err) {
-      alert("Failed to add payment");
-    }
+  const handlePaymentSubmit = async (data: PaymentFormData) => {
+    await paymentAPI.create({
+      amount: data.amount,
+      companyName: data.companyName,
+      description: data.description,
+      date: data.date,
+      bankId: data.bankId,
+      entityType: data.entityType,
+      companyId: data.companyId,
+      customerId: data.customerId,
+    });
+    setShowModal(false);
+    loadPayments(page);
   };
 
   const handleDelete = async (id: string) => {
@@ -466,210 +421,7 @@ export default function Payments() {
       </div>
 
       {/* Add Payment Modal */}
-      {showModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}>
-          <div
-            style={{
-              background: "white",
-              padding: "30px",
-              borderRadius: "12px",
-              width: "100%",
-              maxWidth: "520px",
-              maxHeight: "100vh",
-              overflow: "auto",
-            }}>
-            <h2 style={{ marginBottom: "24px", fontSize: "20px", fontWeight: "700" }}>Add Payment</h2>
-
-            {/* Method */}
-            <div style={{ marginBottom: "20px" }}>
-              <label style={labelStyle}>Payment Method *</label>
-              <div style={{ display: "flex", gap: "12px" }}>
-                <button
-                  onClick={() => setFormMethod("CASH")}
-                  style={{
-                    flex: 1,
-                    padding: "14px",
-                    border: formMethod === "CASH" ? "2px solid #f59e0b" : "1px solid #ddd",
-                    borderRadius: "8px",
-                    background: formMethod === "CASH" ? "#fef3c7" : "white",
-                    cursor: "pointer",
-                    fontWeight: "600",
-                    color: formMethod === "CASH" ? "#92400e" : "#374151",
-                  }}>
-                  💵 Cash
-                </button>
-                {formMethod === "CASH" && (
-                  <div style={{ position: "absolute", bottom: "-20px", left: "0", fontSize: "12px", color: "#059669", fontWeight: "600" }}>Available: ₹{totalCash.toLocaleString()}</div>
-                )}
-                <button
-                  onClick={() => setFormMethod("BANK")}
-                  style={{
-                    flex: 1,
-                    padding: "14px",
-                    border: formMethod === "BANK" ? "2px solid #3b82f6" : "1px solid #ddd",
-                    borderRadius: "8px",
-                    background: formMethod === "BANK" ? "#eff6ff" : "white",
-                    cursor: "pointer",
-                    fontWeight: "600",
-                    color: formMethod === "BANK" ? "#2563eb" : "#374151",
-                  }}>
-                  🏦 Bank
-                </button>
-              </div>
-              {formMethod === "CASH" && <div style={{ marginTop: "8px", fontSize: "13px", color: "#059669", fontWeight: "600" }}>Available Cash: ₹{totalCash.toLocaleString()}</div>}
-            </div>
-
-            {formMethod === "BANK" && (
-              <div style={{ marginBottom: "20px" }}>
-                <label style={labelStyle}>Bank *</label>
-                <select value={formBankId} onChange={(e) => setFormBankId(e.target.value)} style={inputStyle}>
-                  {banks.length === 0 ? (
-                    <option value="">No banks available</option>
-                  ) : (
-                    banks.map((bank) => (
-                      <option key={bank.id} value={bank.id}>
-                        {bank.name} ({bank.label})
-                      </option>
-                    ))
-                  )}
-                </select>
-                {formBankId &&
-                  (() => {
-                    const selectedBank = banks.find((b) => b.id === formBankId);
-                    return selectedBank ? (
-                      <div style={{ marginTop: "8px", fontSize: "13px", color: "#059669", fontWeight: "600" }}>Available Balance: ₹{Number(selectedBank.balance || 0).toLocaleString()}</div>
-                    ) : null;
-                  })()}
-              </div>
-            )}
-
-            {/* Amount */}
-            <div style={{ marginBottom: "20px" }}>
-              <label style={labelStyle}>Amount (₹) *</label>
-              <input type="number" value={formAmount} onChange={(e) => setFormAmount(e.target.value)} placeholder="Enter amount" style={inputStyle} />
-            </div>
-
-            {/* Company Selection */}
-            <div style={{ marginBottom: "20px", position: "relative" }}>
-              <label style={labelStyle}>Company Name</label>
-              <input
-                type="text"
-                value={companySearch}
-                onChange={(e) => {
-                  setCompanySearch(e.target.value);
-                  setFormCompanyId(""); // Reset ID if user types manual name
-                  setShowCompanyDropdown(true);
-                }}
-                onFocus={() => setShowCompanyDropdown(true)}
-                placeholder="Search or enter company name"
-                style={inputStyle}
-              />
-              {showCompanyDropdown && !formCompanyId && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "100%",
-                    left: 0,
-                    right: 0,
-                    background: "white",
-                    border: "1px solid #ddd",
-                    borderRadius: "8px",
-                    maxHeight: "200px",
-                    overflowY: "auto",
-                    zIndex: 10,
-                    boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
-                  }}>
-                  {companies
-                    .filter((c) => c.name.toLowerCase().includes(companySearch.toLowerCase()))
-                    .map((c) => (
-                      <div
-                        key={c.id}
-                        onClick={() => {
-                          setFormCompanyId(c.id);
-                          setCompanySearch(c.name);
-                          setShowCompanyDropdown(false);
-                        }}
-                        style={{
-                          padding: "10px 12px",
-                          cursor: "pointer",
-                          borderBottom: "1px solid #f3f4f6",
-                          fontSize: "14px",
-                        }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = "white")}>
-                        {c.name} <span style={{ fontSize: "12px", color: "#6b7280" }}>(Due: ₹{c.amountDue})</span>
-                      </div>
-                    ))}
-                  {companies.filter((c) => c.name.toLowerCase().includes(companySearch.toLowerCase())).length === 0 && (
-                    <div style={{ padding: "10px 12px", color: "#9ca3af", fontSize: "13px" }}>No companies found. Manual name will be used.</div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Description */}
-            <div style={{ marginBottom: "20px" }}>
-              <label style={labelStyle}>Description</label>
-              <textarea value={formDescription} onChange={(e) => setFormDescription(e.target.value)} rows={3} placeholder="Optional" style={{ ...inputStyle, resize: "none", fontFamily: "inherit" }} />
-            </div>
-
-            {/* Date */}
-            <div style={{ marginBottom: "24px" }}>
-              <label style={labelStyle}>Date</label>
-              <input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} style={inputStyle} />
-            </div>
-
-            {/* Actions */}
-            <div style={{ display: "flex", gap: "12px" }}>
-              <button
-                onClick={handleSubmit}
-                style={{
-                  flex: 1,
-                  padding: "14px",
-                  background: "#10b981",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                  fontWeight: "600",
-                  fontSize: "14px",
-                }}>
-                Add Payment
-              </button>
-              <button
-                onClick={() => {
-                  setShowModal(false);
-                  resetForm();
-                }}
-                style={{
-                  flex: 1,
-                  padding: "14px",
-                  background: "#e5e7eb",
-                  color: "#374151",
-                  border: "none",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                  fontWeight: "600",
-                  fontSize: "14px",
-                }}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <PaymentModal open={showModal} onClose={() => setShowModal(false)} onSubmit={handlePaymentSubmit} banks={banks} companies={companies} customers={customers} totalCash={totalCash} />
     </div>
   );
 }
@@ -688,23 +440,6 @@ const tdStyle: React.CSSProperties = {
   padding: "16px",
   fontSize: "14px",
   color: "#6b7280",
-};
-
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  marginBottom: "8px",
-  fontWeight: "500",
-  color: "#374151",
-  fontSize: "14px",
-};
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "12px",
-  border: "1px solid #ddd",
-  borderRadius: "8px",
-  fontSize: "14px",
-  boxSizing: "border-box",
 };
 
 const filterInputStyle: React.CSSProperties = {

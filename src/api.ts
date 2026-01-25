@@ -1,5 +1,6 @@
 import axios from "axios";
 import { API_BASE_URL } from "./config";
+import type { EntityType } from "./components/PaymentModal";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -93,8 +94,8 @@ export const expenseAPI = {
 
 export const paymentAPI = {
   getAll: (params?: { page?: number; startDate?: string; endDate?: string; bankId?: string }) => api.get("/admin/payments", { params }),
-  create: (data: { amount: number; companyName?: string; description?: string; date?: string; bankId?: string; companyId?: string }) => api.post("/admin/payments", data),
-  update: (id: string, data: { amount?: number; companyName?: string; description?: string; date?: string; bankId?: string | null; companyId?: string | null }) =>
+  create: (data: { amount: number; companyName?: string; description?: string; date?: string; bankId?: string; companyId?: string; customerId?: string , entityType:EntityType}) => api.post("/admin/payments", data),
+  update: (id: string, data: { amount?: number; companyName?: string; description?: string; date?: string; bankId?: string | null; companyId?: string | null; customerId?: string | null }) =>
     api.patch(`/admin/payments/${id}`, data),
   delete: (id: string) => api.delete(`/admin/payments/${id}`),
 };
