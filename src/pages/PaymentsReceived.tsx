@@ -5,6 +5,9 @@ import autoTable from "jspdf-autotable";
 import Box from "@mui/material/Box";
 import { TabPanel, a11yProps, StyledTabs, StyledTab, ListContainer, ListItem, ListItemName, ListItemSecondary, ListItemAmount, EmptyState, SearchInput } from "../components/EntityTabs";
 import ReceivePaymentModal, { type SelectedEntity, type EntityType, type Bank } from "../components/ReceivePaymentModal";
+import { Modal, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, TextField, Button, CircularProgress } from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
+import VisibilityIcon from "@mui/icons-material/Visibility";
 
 interface Customer {
   id: string;
@@ -31,6 +34,21 @@ interface Driver {
   baseSalary?: number;
 }
 
+interface PaymentRecord {
+  id: string;
+  amount: number;
+  method: string;
+  date: string;
+  description?: string;
+  bankId?: string;
+}
+
+interface ViewDetailsEntity {
+  id: string;
+  name: string;
+  type: EntityType;
+}
+
 export default function PaymentsReceived() {
   const [tabValue, setTabValue] = useState(0);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -47,6 +65,15 @@ export default function PaymentsReceived() {
   const [showModal, setShowModal] = useState(false);
   const [selectedEntity, setSelectedEntity] = useState<SelectedEntity | null>(null);
   const [totalCash, setTotalCash] = useState(0);
+
+  // View Details Modal state
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [detailsEntity, setDetailsEntity] = useState<ViewDetailsEntity | null>(null);
+  const [paymentRecords, setPaymentRecords] = useState<any[]>([]);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsStartDate, setDetailsStartDate] = useState("");
+  const [detailsEndDate, setDetailsEndDate] = useState("");
+  const [detailsTotal, setDetailsTotal] = useState(0);
 
   useEffect(() => {
     loadCustomers();
@@ -145,12 +172,75 @@ export default function PaymentsReceived() {
     });
   };
 
+  // View Details Modal Functions
+  const openDetailsModal = (entity: ViewDetailsEntity) => {
+    setDetailsEntity(entity);
+    setDetailsStartDate("");
+    setDetailsEndDate("");
+    setPaymentRecords([]);
+    setShowDetailsModal(true);
+    loadPaymentRecords(entity.id, entity.type);
+  };
+
+  const closeDetailsModal = () => {
+    setShowDetailsModal(false);
+    setDetailsEntity(null);
+    setPaymentRecords([]);
+    setDetailsStartDate("");
+    setDetailsEndDate("");
+  };
+
+  const loadPaymentRecords = async (entityId: string, entityType: EntityType, start?: string, end?: string) => {
+    setDetailsLoading(true);
+    try {
+      const params: { entityType: string; start?: string; end?: string } = { entityType };
+      if (start) params.start = new Date(start).toISOString();
+      if (end) {
+        const endDate = new Date(end);
+        endDate.setHours(23, 59, 59, 999);
+        params.end = endDate.toISOString();
+      }
+      const res = await adminAPI.getPaymentsReceived(entityId, params);
+      setPaymentRecords(res.data?.rows || []);
+      setDetailsTotal(res.data?.total || 0);
+    } catch (err) {
+      console.error("Failed to load payment records", err);
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  const handleDetailsDateFilter = () => {
+    if (detailsEntity) {
+      loadPaymentRecords(detailsEntity.id, detailsEntity.type, detailsStartDate, detailsEndDate);
+    }
+  };
+
+  const clearDetailsDateFilter = () => {
+    setDetailsStartDate("");
+    setDetailsEndDate("");
+    if (detailsEntity) {
+      loadPaymentRecords(detailsEntity.id, detailsEntity.type);
+    }
+  };
+
+  const formatPaymentDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+  console.log(detailsEntity);
   const handlePaymentSubmit = async (data: { entityId: string; entityType: EntityType; amount: number; method: "CASH" | "BANK"; bankId?: string }) => {
     // Call appropriate API based on entity type
+    console.log(data);
     switch (data.entityType) {
       case "customer":
         await adminAPI.receiveCustomerPayment({
-          driverId: data.entityId,
+          customerId: data.entityId,
           amount: data.amount,
           method: data.method,
           bankId: data.bankId,
@@ -313,13 +403,28 @@ export default function PaymentsReceived() {
               <EmptyState>No companies found</EmptyState>
             ) : (
               filteredCompanies.map((company) => (
-                <ListItem key={company.id} sx={{ cursor: "pointer" }} onClick={() => handleCompanyClick(company)}>
-                  <Box>
+                <ListItem key={company.id} sx={{ cursor: "pointer" }}>
+                  <Box onClick={() => handleCompanyClick(company)} sx={{ flex: 1 }}>
                     <ListItemName>{company.name}</ListItemName>
                     {company.mobile && <ListItemSecondary>• {company.mobile}</ListItemSecondary>}
                     {company.address && <ListItemSecondary>• {company.address}</ListItemSecondary>}
                   </Box>
-                  <ListItemAmount positive={Number(company.amountDue) <= 0}>₹{Number(company.amountDue || 0).toLocaleString()}</ListItemAmount>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<VisibilityIcon />}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openDetailsModal({ id: company.id, name: company.name, type: "company" });
+                      }}
+                      sx={{ textTransform: "none", borderColor: "#3b82f6", color: "#3b82f6", "&:hover": { borderColor: "#2563eb", backgroundColor: "#eff6ff" } }}>
+                      View Details
+                    </Button>
+                    <ListItemAmount positive={Number(company.amountDue) <= 0} onClick={() => handleCompanyClick(company)}>
+                      ₹{Number(company.amountDue || 0).toLocaleString()}
+                    </ListItemAmount>
+                  </Box>
                 </ListItem>
               ))
             )}
@@ -334,13 +439,28 @@ export default function PaymentsReceived() {
               <EmptyState>No customers found</EmptyState>
             ) : (
               filteredCustomers.map((customer) => (
-                <ListItem key={customer.id} sx={{ cursor: "pointer" }} onClick={() => handleCustomerClick(customer)}>
-                  <Box>
+                <ListItem key={customer.id} sx={{ cursor: "pointer" }}>
+                  <Box onClick={() => handleCustomerClick(customer)} sx={{ flex: 1 }}>
                     <ListItemName>{customer.name}</ListItemName>
                     <ListItemSecondary>• {customer.mobile}</ListItemSecondary>
                     {customer.address && <ListItemSecondary>• {customer.address}</ListItemSecondary>}
                   </Box>
-                  <ListItemAmount positive={Number(customer.balance) <= 0}>₹{Number(customer.balance || 0).toLocaleString()}</ListItemAmount>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<VisibilityIcon />}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openDetailsModal({ id: customer.id, name: customer.name, type: "customer" });
+                      }}
+                      sx={{ textTransform: "none", borderColor: "#3b82f6", color: "#3b82f6", "&:hover": { borderColor: "#2563eb", backgroundColor: "#eff6ff" } }}>
+                      View Details
+                    </Button>
+                    <ListItemAmount positive={Number(customer.balance) <= 0} onClick={() => handleCustomerClick(customer)}>
+                      ₹{Number(customer.balance || 0).toLocaleString()}
+                    </ListItemAmount>
+                  </Box>
                 </ListItem>
               ))
             )}
@@ -355,21 +475,34 @@ export default function PaymentsReceived() {
               <EmptyState>No drivers found</EmptyState>
             ) : (
               filteredDrivers.map((driver) => (
-                <ListItem key={driver.id} sx={{ cursor: "pointer" }} onClick={() => handleDriverClick(driver)}>
-                  <Box>
+                <ListItem key={driver.id} sx={{ cursor: "pointer" }}>
+                  <Box onClick={() => handleDriverClick(driver)} sx={{ flex: 1 }}>
                     <ListItemName>{driver.name}</ListItemName>
                     <ListItemSecondary>• {driver.mobile}</ListItemSecondary>
                     <ListItemSecondary>
                       • <span style={{ color: driver.status === "ACTIVE" ? "#10b981" : "#ef4444", fontWeight: 600 }}>{driver.status}</span>
                     </ListItemSecondary>
                   </Box>
-                  {driver.baseSalary !== undefined && (
-                    <Box sx={{ textAlign: "right" }}>
-                      <span style={{ fontSize: "13px", color: "#6b7280" }}>Base Salary</span>
-                      <br />
-                      <span style={{ fontWeight: 600, color: "#111827" }}>₹{Number(driver.baseSalary || 0).toLocaleString()}</span>
-                    </Box>
-                  )}
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<VisibilityIcon />}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openDetailsModal({ id: driver.id, name: driver.name, type: "driver" });
+                      }}
+                      sx={{ textTransform: "none", borderColor: "#3b82f6", color: "#3b82f6", "&:hover": { borderColor: "#2563eb", backgroundColor: "#eff6ff" } }}>
+                      View Details
+                    </Button>
+                    {driver.baseSalary !== undefined && (
+                      <Box sx={{ textAlign: "right" }} onClick={() => handleDriverClick(driver)}>
+                        <span style={{ fontSize: "13px", color: "#6b7280" }}>Base Salary</span>
+                        <br />
+                        <span style={{ fontWeight: 600, color: "#111827" }}>₹{Number(driver.baseSalary || 0).toLocaleString()}</span>
+                      </Box>
+                    )}
+                  </Box>
                 </ListItem>
               ))
             )}
@@ -379,6 +512,147 @@ export default function PaymentsReceived() {
 
       {/* Reusable Payment Modal */}
       <ReceivePaymentModal open={showModal} entity={selectedEntity} banks={banks} totalCash={totalCash} onClose={closeModal} onSubmit={handlePaymentSubmit} />
+
+      {/* View Details Modal */}
+      <Modal open={showDetailsModal} onClose={closeDetailsModal}>
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: "90%",
+            maxWidth: 800,
+            maxHeight: "85vh",
+            bgcolor: "background.paper",
+            borderRadius: 3,
+            boxShadow: 24,
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+          }}>
+          {/* Modal Header */}
+          <Box sx={{ px: 3, py: 2, borderBottom: "1px solid #e5e7eb", display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: "#f9fafb" }}>
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 600, color: "#111827" }}>
+                Payment History - {detailsEntity?.name}
+              </Typography>
+              <Typography variant="body2" sx={{ color: "#6b7280", textTransform: "capitalize" }}>
+                {detailsEntity?.type} • {detailsTotal} payment(s) found
+              </Typography>
+            </Box>
+            <IconButton onClick={closeDetailsModal} sx={{ color: "#6b7280" }}>
+              <CloseIcon />
+            </IconButton>
+          </Box>
+
+          {/* Date Filters */}
+          <Box sx={{ px: 3, py: 2, borderBottom: "1px solid #e5e7eb", display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
+            <TextField
+              type="date"
+              label="Start Date"
+              value={detailsStartDate}
+              onChange={(e) => setDetailsStartDate(e.target.value)}
+              size="small"
+              InputLabelProps={{ shrink: true }}
+              sx={{ width: 160 }}
+            />
+            <TextField type="date" label="End Date" value={detailsEndDate} onChange={(e) => setDetailsEndDate(e.target.value)} size="small" InputLabelProps={{ shrink: true }} sx={{ width: 160 }} />
+            <Button variant="contained" size="small" onClick={handleDetailsDateFilter} sx={{ textTransform: "none", backgroundColor: "#3b82f6", "&:hover": { backgroundColor: "#2563eb" } }}>
+              Apply Filter
+            </Button>
+            {(detailsStartDate || detailsEndDate) && (
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={clearDetailsDateFilter}
+                sx={{ textTransform: "none", borderColor: "#ef4444", color: "#ef4444", "&:hover": { borderColor: "#dc2626", backgroundColor: "#fef2f2" } }}>
+                Clear
+              </Button>
+            )}
+            {/* Total Amount Summary */}
+            <Box sx={{ ml: "auto", textAlign: "right" }}>
+              <Typography variant="caption" sx={{ color: "#6b7280" }}>
+                Total Received
+              </Typography>
+              <Typography variant="h6" sx={{ fontWeight: 700, color: "#10b981" }}>
+                ₹{paymentRecords.reduce((sum, p) => sum + Number(p.amount || 0), 0).toLocaleString()}
+              </Typography>
+            </Box>
+          </Box>
+
+          {/* Table Content */}
+          <Box sx={{ flex: 1, overflow: "auto", maxHeight: 400 }}>
+            {detailsLoading ? (
+              <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", py: 8 }}>
+                <CircularProgress />
+              </Box>
+            ) : paymentRecords.length === 0 ? (
+              <Box sx={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", py: 8 }}>
+                <Typography variant="h4" sx={{ mb: 1 }}>
+                  💳
+                </Typography>
+                <Typography variant="body1" sx={{ color: "#6b7280" }}>
+                  No payment records found
+                </Typography>
+                <Typography variant="body2" sx={{ color: "#9ca3af", mt: 0.5 }}>
+                  {detailsStartDate || detailsEndDate ? "Try adjusting the date filter" : "No payments have been received yet"}
+                </Typography>
+              </Box>
+            ) : (
+              <TableContainer component={Paper} elevation={0}>
+                <Table stickyHeader>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 600, backgroundColor: "#f9fafb" }}>Date</TableCell>
+                      <TableCell sx={{ fontWeight: 600, backgroundColor: "#f9fafb" }}>Method</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 600, backgroundColor: "#f9fafb" }}>
+                        Amount
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 600, backgroundColor: "#f9fafb" }}>Description</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {paymentRecords.map((payment) => (
+                      <TableRow key={payment.id} hover>
+                        <TableCell>{formatPaymentDate(payment.date)}</TableCell>
+                        <TableCell>
+                          <Box
+                            component="span"
+                            sx={{
+                              px: 1.5,
+                              py: 0.5,
+                              borderRadius: 2,
+                              fontSize: "12px",
+                              fontWeight: 600,
+                              backgroundColor: payment?.details.includes("CASH") ? "#fef3c7" : "#dbeafe",
+                              color: payment?.details === "CASH" ? "#92400e" : "#1e40af",
+                            }}>
+                            {payment?.details}
+                          </Box>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: "#10b981" }}>
+                            ₹{Number(payment.amount || 0).toLocaleString()}
+                          </Typography>
+                        </TableCell>
+                        <TableCell sx={{ color: "#6b7280", maxWidth: 200 }}>{payment.description || "-"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </Box>
+
+          {/* Modal Footer */}
+          <Box sx={{ px: 3, py: 2, borderTop: "1px solid #e5e7eb", display: "flex", justifyContent: "flex-end", backgroundColor: "#f9fafb" }}>
+            <Button variant="outlined" onClick={closeDetailsModal} sx={{ textTransform: "none" }}>
+              Close
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
     </div>
   );
 }

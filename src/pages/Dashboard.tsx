@@ -4,6 +4,8 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs, { Dayjs } from "dayjs";
+import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Typography, Box, Chip, TextField, InputAdornment } from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
 
 interface ExpenseSummary {
   cashTotal: number;
@@ -19,6 +21,18 @@ interface TotalCapital {
   cashLastUpdatedAt: string | null;
 }
 
+interface DriverActivity {
+  driverId: string;
+  driverName: string;
+  totalSellCashAmount: number;
+  totalSellUpiAmount: number;
+  totalSellAmount: number;
+  totalSellQuantity: number;
+  totalBuyAmount: number;
+  totalBuyQuantityKg: number;
+  totalWeightLoss: number;
+}
+
 export default function Dashboard() {
   const [stats, setStats] = useState<any>(null);
   const [expenseSummary, setExpenseSummary] = useState<ExpenseSummary | null>(null);
@@ -26,7 +40,10 @@ export default function Dashboard() {
   const [totalUdhaar, setTotalUdhaar] = useState(0);
   const [totalCompanies, setTotalCompanies] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [date,setDate] = useState(new Date())
+  const [date, setDate] = useState(new Date());
+  const [driversActivity, setDriversActivity] = useState<DriverActivity[]>([]);
+  const [driverSearch, setDriverSearch] = useState("");
+  const [driverTableDate, setDriverTableDate] = useState<Dayjs>(dayjs());
 
   useEffect(() => {
     const loadStats = async (date:Date) => {
@@ -39,8 +56,8 @@ export default function Dashboard() {
         endDate.setHours(23, 59, 59, 999);
         
   
-        const [dashboardRes, expenseRes, capitalRes, borrowedRes, companiesRes] = await Promise.all([
-          adminAPI.getDashboard({start: startDate.getTime(), end: endDate.getTime()}),
+        const [dashboardRes, expenseRes, capitalRes, borrowedRes, companiesRes, driversActivityRes] = await Promise.all([
+          adminAPI.getDashboard({ start: startDate.getTime(), end: endDate.getTime() }),
           expenseAPI.getSummary({
             startDate: startDate.toISOString(),
             endDate: endDate.toISOString(),
@@ -48,16 +65,21 @@ export default function Dashboard() {
           adminAPI.getTotalCapital(),
           adminAPI.getBorrowedInfo(),
           companyAPI.getAll({ page: 1 }),
+          adminAPI.getDriversActivitySummary({
+            start: startDate.toISOString(),
+            end: endDate.toISOString(),
+          }),
         ]);
-  
+
         setStats(dashboardRes.data);
         setExpenseSummary(expenseRes.data);
         setTotalCapital(capitalRes.data);
-  
+        setDriversActivity(driversActivityRes.data?.driversActivity || []);
+
         // Calculate Total Udhaar
         const udhaar = (borrowedRes.data || []).reduce((sum: number, item: any) => sum + Number(item.borrowedMoney || 0), 0);
         setTotalUdhaar(udhaar);
-  
+
         // Set Total Companies
         setTotalCompanies(Number(companiesRes.data?.total || 0));
       } catch (err) {
@@ -69,6 +91,30 @@ export default function Dashboard() {
     console.log(date)
     loadStats(date);
   }, [date]);
+
+  // Load driver activity when driverTableDate changes
+  useEffect(() => {
+    const loadDriverActivity = async () => {
+      try {
+        const startDate = driverTableDate.startOf("day").toDate();
+        const endDate = driverTableDate.endOf("day").toDate();
+        
+        const driversActivityRes = await adminAPI.getDriversActivitySummary({
+          start: startDate.toISOString(),
+          end: endDate.toISOString(),
+        });
+        setDriversActivity(driversActivityRes.data?.driversActivity || []);
+      } catch (err) {
+        console.error("Failed to load driver activity", err);
+      }
+    };
+    loadDriverActivity();
+  }, [driverTableDate]);
+
+  // Filter drivers by search
+  const filteredDriversActivity = driversActivity.filter((driver) =>
+    driver.driverName?.toLowerCase().includes(driverSearch.toLowerCase())
+  );
 
  
 
@@ -106,6 +152,122 @@ export default function Dashboard() {
         <StatCard title="Today Sell" value={`${(stats?.todaySell || 0)?.toFixed(2)} KG`} color="#3b82f6" icon="📤" />
         <StatCard title="Today Shop Buy" value={`${(stats?.todayShopBuy || 0)?.toFixed(2)} KG`} color="#8b5cf6" icon="🛒" />
       </div>
+
+      {/* Driver Activity Table */}
+      <Paper sx={{ mb: 4, borderRadius: 3, border: "1px solid #e5e7eb", overflow: "hidden" }}>
+        {/* Header with Title */}
+        <Box sx={{ px: 3, py: 2, borderBottom: "1px solid #e5e7eb", backgroundColor: "#f9fafb" }}>
+          <Typography variant="h6" sx={{ fontWeight: 600, color: "#374151" }}>
+            Driver Activity Summary
+          </Typography>
+        </Box>
+
+        {/* Filters Section */}
+        <Box sx={{ px: 3, py: 2, display: "flex", gap: 2, alignItems: "center", borderBottom: "1px solid #e5e7eb", backgroundColor: "#fff" }}>
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <DatePicker
+              label="Select Date"
+              value={driverTableDate}
+              onChange={(newValue: Dayjs | null) => {
+                if (newValue) {
+                  setDriverTableDate(newValue);
+                }
+              }}
+              slotProps={{ textField: { size: "small", sx: { width: 180 } } }}
+              disableFuture
+            />
+          </LocalizationProvider>
+          <TextField
+            size="small"
+            placeholder="Search driver..."
+            value={driverSearch}
+            onChange={(e) => setDriverSearch(e.target.value)}
+            sx={{ width: 250 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ color: "#9ca3af" }} />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <Typography variant="body2" sx={{ color: "#6b7280", ml: "auto" }}>
+            {filteredDriversActivity.length} driver(s) found
+          </Typography>
+        </Box>
+
+        {/* Table with fixed height and scroll */}
+        <TableContainer sx={{ maxHeight: 400 }}>
+          <Table stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 600, color: "#374151", backgroundColor: "#f9fafb" }}>Driver</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, color: "#374151", backgroundColor: "#f9fafb" }}>Buy Qty (KG)</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, color: "#374151", backgroundColor: "#f9fafb" }}>Buy Amount</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, color: "#374151", backgroundColor: "#f9fafb" }}>Sell Qty (KG)</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, color: "#374151", backgroundColor: "#f9fafb" }}>Sell Amount</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, color: "#374151", backgroundColor: "#f9fafb" }}>Cash Collected</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, color: "#374151", backgroundColor: "#f9fafb" }}>UPI Collected</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, color: "#374151", backgroundColor: "#f9fafb" }}>Weight Loss</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredDriversActivity.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} align="center" sx={{ py: 4, color: "#6b7280" }}>
+                    No driver activity for this date
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredDriversActivity.map((driver) => (
+                  <TableRow key={driver.driverId} hover sx={{ "&:last-child td, &:last-child th": { border: 0 } }}>
+                    <TableCell>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <Chip label={driver.driverName || "Unknown"} size="small" sx={{ fontWeight: 600, backgroundColor: "#eff6ff", color: "#1d4ed8" }} />
+                      </Box>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        {driver.totalBuyQuantityKg.toFixed(2)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: "#3b82f6" }}>
+                        ₹{driver.totalBuyAmount.toLocaleString()}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        {driver.totalSellQuantity.toFixed(2)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: "#10b981" }}>
+                        ₹{driver.totalSellAmount.toLocaleString()}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: "#f59e0b" }}>
+                        ₹{driver.totalSellCashAmount.toLocaleString()}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: "#8b5cf6" }}>
+                        ₹{driver.totalSellUpiAmount.toLocaleString()}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: driver.totalWeightLoss > 0 ? "#ef4444" : "#6b7280" }}>
+                        {driver.totalWeightLoss.toFixed(2)} KG
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
 
       {/* Today's Buy & Sell Cards Row */}
       <div

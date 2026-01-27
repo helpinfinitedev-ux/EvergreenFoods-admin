@@ -659,7 +659,7 @@ export default function Bought() {
                     <div style={{ fontWeight: "500", color: "#374151" }}>{tx.driver?.name || "-"}</div>
                   </td>
                   <td style={tdStyle}>
-                    <div style={{ fontWeight: "500", color: "#374151" }}>{tx?.companyName || tx?.company?.name || "-"}</div>
+                    <div style={{ fontWeight: "500", color: "#374151" }}>{tx?.companyName || tx?.company?.name || tx?.customer?.name || tx?.driver?.name || "-"}</div>
                     {tx.customer?.phone && <div style={{ fontSize: "12px", color: "#9ca3af" }}>{tx.customer.phone}</div>}
                   </td>
                   <td style={tdStyle}>

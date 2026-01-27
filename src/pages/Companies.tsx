@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { companyAPI } from "../api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -17,6 +17,18 @@ interface CompanyForm {
   mobile: string;
   address: string;
   amountDue: string;
+}
+
+interface CompanyTransaction {
+  id: string;
+  type: string;
+  totalAmount?: number | string | null;
+  paymentCash?: number | string | null;
+  paymentUpi?: number | string | null;
+  amount?: number | string | null;
+  rate?: number | string | null;
+  details?: string | null;
+  date: string;
 }
 
 const initialForm: CompanyForm = {
@@ -41,10 +53,26 @@ export default function Companies() {
   const [totalPages, setTotalPages] = useState(1);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
+  // History modal state
+  const [historyCompany, setHistoryCompany] = useState<Company | null>(null);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
+  const [historyTransactions, setHistoryTransactions] = useState<CompanyTransaction[]>([]);
+  const [historyStartDate, setHistoryStartDate] = useState("");
+  const [historyEndDate, setHistoryEndDate] = useState("");
+
   useEffect(() => {
     loadCompanies(page);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
+
+  useEffect(() => {
+    if (showHistoryModal && historyCompany?.id) {
+      loadCompanyHistory(historyCompany.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showHistoryModal, historyCompany?.id]);
 
   const loadCompanies = async (pageToLoad: number) => {
     setLoading(true);
@@ -60,6 +88,181 @@ export default function Companies() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadCompanyHistory = async (companyId: string) => {
+    setHistoryLoading(true);
+    setHistoryError("");
+    try {
+      const response = await companyAPI.getHistory(companyId);
+      setHistoryTransactions(response.data || []);
+    } catch (err) {
+      console.error("Failed to load company history", err);
+      setHistoryError("Failed to load company transactions");
+      setHistoryTransactions([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const openHistoryModal = (company: Company) => {
+    setHistoryCompany(company);
+    setHistoryTransactions([]);
+    setHistoryError("");
+    setHistoryStartDate("");
+    setHistoryEndDate("");
+    setShowHistoryModal(true);
+  };
+
+  const closeHistoryModal = () => {
+    setShowHistoryModal(false);
+    setHistoryCompany(null);
+    setHistoryTransactions([]);
+    setHistoryError("");
+    setHistoryStartDate("");
+    setHistoryEndDate("");
+  };
+
+  // Process history rows for display
+  const historyRowsAll = useMemo(() => {
+    if (!historyCompany) return [];
+
+    let runningBalance = Number(historyCompany.amountDue || 0);
+
+    return historyTransactions.map((t) => {
+      let bill = Number(t.totalAmount || 0);
+      let paid = Number(t.paymentCash || 0) + Number(t.paymentUpi || 0);
+      const rate = Number(t.rate || 0);
+
+      let change = 0;
+      if (t.type === "BUY") {
+        change = bill - paid;
+      } else if (t.type === "DEBIT_NOTE") {
+        paid = 0;
+        change = bill;
+      } else if (t.type === "CREDIT_NOTE") {
+        paid = bill;
+        change = -bill;
+      } else if (t.type === "PAYMENT") {
+        paid = bill;
+        change = -bill;
+        bill = 0;
+      }
+
+      const balanceAfter = runningBalance;
+      runningBalance = runningBalance - change;
+
+      const typeLabel =
+        t.type === "BUY" ? "BUY" :
+        t.type === "DEBIT_NOTE" ? "DEBIT" :
+        t.type === "CREDIT_NOTE" ? "CREDIT" :
+        t.type === "PAYMENT" ? "PAYMENT" :
+        String(t.type || "-");
+
+      let qtyKg: number | null = null;
+      if (t.type === "BUY") {
+        qtyKg = Number(t.amount || 0);
+      } else if (t.type === "DEBIT_NOTE" || t.type === "CREDIT_NOTE") {
+        const qty = Number(t.amount || 0);
+        if (qty > 0) qtyKg = qty;
+      }
+
+      return {
+        id: t.id,
+        date: t.date,
+        type: typeLabel,
+        bill,
+        paid,
+        change,
+        qtyKg,
+        rate,
+        balanceAfter,
+      };
+    });
+  }, [historyCompany, historyTransactions]);
+
+  const historyRows = useMemo(() => {
+    if (!historyStartDate && !historyEndDate) return historyRowsAll;
+
+    const start = historyStartDate ? new Date(historyStartDate + "T00:00:00.000") : null;
+    const end = historyEndDate ? new Date(historyEndDate + "T23:59:59.999") : null;
+
+    return historyRowsAll.filter((row) => {
+      const d = new Date(row.date);
+      if (start && d < start) return false;
+      if (end && d > end) return false;
+      return true;
+    });
+  }, [historyRowsAll, historyStartDate, historyEndDate]);
+
+  const generateCompanyHistoryPdf = () => {
+    if (!historyCompany || historyRows.length === 0) return;
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // Header - Plain black text
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0, 0, 0);
+    doc.text("Company " + historyCompany.name, pageWidth / 2, 20, { align: "center" });
+
+    // Simple table headers matching the format
+    const headers = ["Quantity", "Type", "Rate", "Amt", "Deposit", "Balance"];
+    const rows = historyRows.map((row) => {
+      return [
+        row.qtyKg ? Number(row.qtyKg).toFixed(0) : "-",
+        row.type,
+        row.rate ? Number(row.rate).toFixed(0) : "-",
+        Number(row.bill || 0).toFixed(0),
+        Number(row.paid || 0).toFixed(0),
+        Number(row.balanceAfter || 0).toFixed(0),
+      ];
+    });
+
+    autoTable(doc, {
+      head: [headers],
+      body: rows,
+      startY: 30,
+      styles: {
+        fontSize: 10,
+        cellPadding: 4,
+        overflow: "linebreak",
+        valign: "middle",
+        halign: "center",
+        textColor: [0, 0, 0],
+        lineColor: [0, 0, 0],
+        lineWidth: 0.5,
+      },
+      headStyles: {
+        fillColor: [255, 255, 255],
+        textColor: [0, 0, 0],
+        fontStyle: "bold",
+        lineColor: [0, 0, 0],
+        lineWidth: 0.5,
+      },
+      bodyStyles: {
+        fillColor: [255, 255, 255],
+      },
+      alternateRowStyles: {
+        fillColor: [255, 255, 255],
+      },
+      tableLineColor: [0, 0, 0],
+      tableLineWidth: 0.5,
+      columnStyles: {
+        0: { cellWidth: 28 },
+        1: { cellWidth: 24 },
+        2: { cellWidth: 24 },
+        3: { cellWidth: 28 },
+        4: { cellWidth: 28 },
+        5: { cellWidth: 32 },
+      },
+      tableWidth: "auto",
+      margin: { left: 14, right: 14 },
+    });
+
+    const fileName = (historyCompany.name || "company").replace(/\s+/g, "_") + "_history_" + new Date().toISOString().split("T")[0] + ".pdf";
+    doc.save(fileName);
   };
 
   const formatDate = (dateString: string) =>
@@ -311,14 +514,22 @@ export default function Companies() {
           </thead>
           <tbody>
             {companies.map((company) => (
-              <tr key={company.id} style={{ borderBottom: "1px solid #e5e7eb" }}>
+              <tr
+                key={company.id}
+                style={{ borderBottom: "1px solid #e5e7eb", cursor: "pointer", transition: "background 0.15s" }}
+                onClick={() => openHistoryModal(company)}
+                onMouseOver={(e) => (e.currentTarget.style.background = "#f9fafb")}
+                onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}>
                 <td style={tdStyle}>{company.name}</td>
                 <td style={tdStyle}>{formatMoney(company.amountDue)}</td>
                 <td style={tdStyle}>{formatDate(company.createdAt)}</td>
                 <td style={tdStyle}>
                   <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                     <button
-                      onClick={() => openEditModal(company)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openEditModal(company);
+                      }}
                       style={{
                         padding: "6px 12px",
                         background: "#f59e0b",
@@ -331,20 +542,6 @@ export default function Companies() {
                       }}>
                       ✏️ Edit
                     </button>
-                    {/* <button
-                      onClick={() => handleDeleteCompany(company)}
-                      style={{
-                        padding: "6px 12px",
-                        background: "#111827",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                        fontSize: "13px",
-                        fontWeight: "600",
-                      }}>
-                      🗑️ Delete
-                    </button> */}
                   </div>
                 </td>
               </tr>
@@ -618,6 +815,181 @@ export default function Companies() {
           </div>
         </div>
       )}
+
+      {/* Company Transaction History Modal */}
+      {showHistoryModal && historyCompany && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0, 0, 0, 0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={closeHistoryModal}>
+          <div
+            style={{
+              background: "white",
+              borderRadius: "16px",
+              width: "100%",
+              maxWidth: "900px",
+              maxHeight: "85vh",
+              overflow: "hidden",
+              boxShadow: "0 25px 80px rgba(0, 0, 0, 0.35)",
+            }}
+            onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div
+              style={{
+                padding: "20px 24px",
+                borderBottom: "2px solid #000",
+                background: "#fff",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: "12px",
+              }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: "20px", fontWeight: "700", color: "#000" }}>Company {historyCompany.name}</h2>
+                <div style={{ marginTop: "8px", fontSize: "13px", color: "#333" }}>
+                  {historyCompany.mobile && <>Mobile: {historyCompany.mobile} • </>}
+                  Current Balance: <span style={{ fontWeight: "700" }}>{Number(historyCompany.amountDue || 0).toFixed(0)}</span>
+                </div>
+                {/* Date Filters */}
+                <div style={{ display: "flex", gap: "10px", marginTop: "12px", alignItems: "center", flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <label style={{ fontSize: "12px", color: "#333", fontWeight: "600" }}>From:</label>
+                    <input
+                      type="date"
+                      value={historyStartDate}
+                      onChange={(e) => setHistoryStartDate(e.target.value)}
+                      style={{
+                        padding: "8px 10px",
+                        border: "1px solid #000",
+                        borderRadius: "4px",
+                        fontSize: "13px",
+                        color: "#000",
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <label style={{ fontSize: "12px", color: "#333", fontWeight: "600" }}>To:</label>
+                    <input
+                      type="date"
+                      value={historyEndDate}
+                      onChange={(e) => setHistoryEndDate(e.target.value)}
+                      style={{
+                        padding: "8px 10px",
+                        border: "1px solid #000",
+                        borderRadius: "4px",
+                        fontSize: "13px",
+                        color: "#000",
+                      }}
+                    />
+                  </div>
+                  {(historyStartDate || historyEndDate) && (
+                    <button
+                      onClick={() => {
+                        setHistoryStartDate("");
+                        setHistoryEndDate("");
+                      }}
+                      style={{
+                        padding: "8px 12px",
+                        background: "#fff",
+                        color: "#000",
+                        border: "1px solid #000",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "12px",
+                        fontWeight: "700",
+                      }}>
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <button
+                  onClick={generateCompanyHistoryPdf}
+                  disabled={historyLoading || historyRows.length === 0}
+                  style={{
+                    background: historyLoading || historyRows.length === 0 ? "#ccc" : "#000",
+                    border: "none",
+                    fontSize: "14px",
+                    cursor: historyLoading || historyRows.length === 0 ? "not-allowed" : "pointer",
+                    color: "#fff",
+                    padding: "10px 14px",
+                    borderRadius: "4px",
+                    fontWeight: "700",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}>
+                  <span style={{ fontSize: "16px" }}>📄</span>
+                  Download PDF
+                </button>
+                <button
+                  onClick={closeHistoryModal}
+                  style={{
+                    background: "#fff",
+                    border: "1px solid #000",
+                    fontSize: "20px",
+                    cursor: "pointer",
+                    color: "#000",
+                    padding: "8px 12px",
+                    borderRadius: "4px",
+                    lineHeight: 1,
+                  }}>
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div style={{ padding: "20px 24px", maxHeight: "calc(85vh - 90px)", overflowY: "auto" }}>
+              {historyLoading ? (
+                <div style={{ padding: "48px", textAlign: "center", color: "#6b7280" }}>Loading transactions...</div>
+              ) : historyError ? (
+                <div style={{ padding: "48px", textAlign: "center", color: "#dc2626" }}>{historyError}</div>
+              ) : historyRows.length === 0 ? (
+                <div style={{ padding: "48px", textAlign: "center", color: "#9ca3af" }}>No transactions found (last 30 days)</div>
+              ) : (
+                <div style={{ border: "2px solid #000", borderRadius: "4px", overflow: "hidden" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ borderBottom: "2px solid #000" }}>
+                        <th style={simpleThStyle}>Quantity</th>
+                        <th style={simpleThStyle}>Type</th>
+                        <th style={simpleThStyle}>Rate</th>
+                        <th style={simpleThStyle}>Amt</th>
+                        <th style={simpleThStyle}>Deposit</th>
+                        <th style={simpleThStyle}>Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historyRows.map((row) => (
+                        <tr key={row.id} style={{ borderBottom: "1px solid #000" }}>
+                          <td style={simpleTdStyle}>{row.qtyKg ? Number(row.qtyKg).toFixed(0) : "-"}</td>
+                          <td style={simpleTdStyle}>{row.type}</td>
+                          <td style={simpleTdStyle}>{row.rate ? Number(row.rate).toFixed(0) : "-"}</td>
+                          <td style={simpleTdStyle}>{Number(row.bill).toFixed(0)}</td>
+                          <td style={simpleTdStyle}>{Number(row.paid).toFixed(0)}</td>
+                          <td style={simpleTdStyle}>{Number(row.balanceAfter).toFixed(0)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -653,4 +1025,23 @@ const inputStyle: React.CSSProperties = {
   outline: "none",
   transition: "border-color 0.15s, box-shadow 0.15s",
   boxSizing: "border-box",
+};
+
+const simpleThStyle: React.CSSProperties = {
+  padding: "12px 16px",
+  textAlign: "center",
+  fontSize: "14px",
+  fontWeight: "600",
+  color: "#000",
+  background: "#fff",
+  borderRight: "1px solid #000",
+};
+
+const simpleTdStyle: React.CSSProperties = {
+  padding: "10px 16px",
+  fontSize: "14px",
+  color: "#000",
+  textAlign: "center",
+  background: "#fff",
+  borderRight: "1px solid #000",
 };

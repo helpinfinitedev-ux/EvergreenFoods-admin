@@ -62,83 +62,67 @@ export default function Customers() {
     return "Rs." + intWithCommas + "." + decPart;
   };
 
-  const formatDateForPdf = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
   const generateCustomerHistoryPdf = () => {
     if (!historyCustomer || historyRows.length === 0) return;
 
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
 
-    // Header
-    doc.setFontSize(18);
+    // Header - Plain black text
+    doc.setFontSize(13);
     doc.setFont("helvetica", "bold");
-    doc.text("Evergreen Foods", pageWidth / 2, 18, { align: "center" });
+    doc.setTextColor(0, 0, 0);
+    doc.text("Customer " + historyCustomer.name, pageWidth / 2, 20, { align: "center" });
 
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text("Customer Transaction Report", pageWidth / 2, 26, { align: "center" });
-
-    // Customer Info
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("Customer: " + historyCustomer.name, 14, 38);
-    doc.setFont("helvetica", "normal");
-    doc.text("Mobile: " + historyCustomer.mobile, 14, 45);
-    doc.text("Current Due: " + formatMoneyForPdf(Number(historyCustomer.balance || 0)), 14, 52);
-
-    const periodText =
-      historyStartDate || historyEndDate ? "Period: " + (historyStartDate || "Start") + " to " + (historyEndDate || "Present") : "Report Generated: " + new Date().toLocaleDateString("en-IN");
-    doc.text(periodText, 14, 59);
-
-    const headers = ["Date", "Qty (Kg)", "Type", "Bill", "Paid", "Due", "Δ", "Info"];
+    // Simple table headers matching the image format
+    const headers = ["Quantity", "Type", "Rate", "Amt", "Deposit", "Balance"];
     const rows = historyRows.map((row) => {
-      const delta = Number(row.change || 0);
-      const deltaStr = (delta > 0 ? "+" : delta < 0 ? "-" : "") + formatMoneyForPdf(Math.abs(delta));
       return [
-        formatDateForPdf(row.date),
-        row.qtyKg ? Number(row.qtyKg).toFixed(2) : "-",
+        row.qtyKg ? Number(row.qtyKg).toFixed(0) : "-",
         row.type,
-        formatMoneyForPdf(Number(row.bill || 0)),
-        formatMoneyForPdf(Number(row.paid || 0)),
-        formatMoneyForPdf(Number(row.balanceAfter || 0)),
-        deltaStr,
-        String(row.info || "-"),
+        row.rate ? Number(row.rate).toFixed(0) : "-",
+        Number(row.bill || 0).toFixed(0),
+        Number(row.paid || 0).toFixed(0),
+        Number(row.balanceAfter || 0).toFixed(0),
       ];
     });
 
     autoTable(doc, {
       head: [headers],
       body: rows,
-      startY: 66,
+      startY: 30,
       styles: {
-        fontSize: 8.5,
-        cellPadding: 2.5,
+        fontSize: 8,
+        cellPadding: 2,
         overflow: "linebreak",
-        valign: "top",
+        valign: "middle",
+        halign: "center",
+        textColor: [0, 0, 0],
+        lineColor: [0, 0, 0],
+        lineWidth: 0.5,
       },
       headStyles: {
-        fillColor: [59, 130, 246],
-        textColor: 255,
+        fillColor: [255, 255, 255],
+        textColor: [0, 0, 0],
         fontStyle: "bold",
+        lineColor: [0, 0, 0],
+        lineWidth: 0.5,
+      },
+      bodyStyles: {
+        fillColor: [255, 255, 255],
       },
       alternateRowStyles: {
-        fillColor: [249, 250, 251],
+        fillColor: [255, 255, 255],
       },
+      tableLineColor: [0, 0, 0],
+      tableLineWidth: 0.5,
       columnStyles: {
-        0: { cellWidth: 22 }, // Date
-        1: { cellWidth: 16 }, // Type
-        2: { cellWidth: 18 }, // Bill
-        3: { cellWidth: 18 }, // Paid
-        4: { cellWidth: 20 }, // Due
-        5: { cellWidth: 16 }, // Delta
-        6: { cellWidth: "auto" }, // Info (wrap)
+        0: { cellWidth: 16 }, // Quantity
+        1: { cellWidth: 30 }, // Type
+        2: { cellWidth: 24 }, // Rate
+        3: { cellWidth: 28 }, // Amt
+        4: { cellWidth: 28 }, // Deposit
+        5: { cellWidth: 32 }, // Balance
       },
       tableWidth: "auto",
       margin: { left: 14, right: 14 },
@@ -312,16 +296,6 @@ export default function Customers() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
   const historyRowsAll = useMemo(() => {
     if (!historyCustomer) return [];
 
@@ -331,6 +305,7 @@ export default function Customers() {
     return historyTransactions.map((t) => {
       let bill = Number(t.totalAmount || 0);
       let paid = Number(t.paymentCash || 0) + Number(t.paymentUpi || 0);
+      const rate = Number(t.rate || 0);
 
       // How this transaction affects customer.balance in backend:
       // SELL: increment by (bill - paid)
@@ -344,12 +319,14 @@ export default function Customers() {
       } else if (t.type === "CREDIT_NOTE") {
         paid = bill;
         change = -bill;
-      }
-      else if (t.type === "ADVANCE_PAYMENT") {
+      } else if (t.type === "ADVANCE_PAYMENT") {
         paid = 0;
         change = -bill;
-      }
-      else if (t.type === "RECEIVE_PAYMENT") {
+      } else if (t.type === "RECEIVE_PAYMENT") {
+        paid = bill;
+        change = -bill;
+        bill = 0;
+      } else if (t.type === "PAYMENT") {
         paid = bill;
         change = -bill;
         bill = 0;
@@ -358,13 +335,12 @@ export default function Customers() {
       const balanceAfter = runningBalance;
       runningBalance = runningBalance - change;
 
-      const typeLabel = t.type === "SELL" ? "Sell" : t.type === "DEBIT_NOTE" ? "Debit Note" : t.type === "CREDIT_NOTE" ? "Credit Note" : String(t.type || "-");
+      const typeLabel = t.type;
 
       const infoParts: string[] = [];
       let qtyKg: number | null = null;
       if (t.type === "SELL") {
         const qty = Number(t.amount || 0);
-        const rate = Number(t.rate || 0);
         qtyKg = qty;
         infoParts.push(`${qty.toFixed(2)} Kg @ Rs.${rate ? rate.toFixed(2) : "-"}`);
       } else if (t.type === "DEBIT_NOTE" || t.type === "CREDIT_NOTE") {
@@ -382,6 +358,7 @@ export default function Customers() {
         paid,
         change,
         qtyKg,
+        rate,
         balanceAfter,
       };
     });
@@ -933,48 +910,47 @@ export default function Customers() {
             <div
               style={{
                 padding: "20px 24px",
-                borderBottom: "1px solid #e5e7eb",
-                background: "linear-gradient(135deg, #f8fafc, #f1f5f9)",
+                borderBottom: "2px solid #000",
+                background: "#fff",
                 display: "flex",
                 justifyContent: "space-between",
-                alignItems: "center",
+                alignItems: "flex-start",
                 gap: "12px",
               }}>
               <div>
-                <h2 style={{ margin: 0, fontSize: "20px", fontWeight: "700", color: "#111827" }}>{historyCustomer.name}'s Transactions</h2>
-                <div style={{ marginTop: "4px", fontSize: "13px", color: "#6b7280" }}>
-                  Mobile: {historyCustomer.mobile} • Current Due:{" "}
-                  <span style={{ fontWeight: "700", color: Number(historyCustomer.balance || 0) > 0 ? "#dc2626" : "#059669" }}>Rs.{Number(historyCustomer.balance || 0).toFixed(2)}</span>
+                <h2 style={{ margin: 0, fontSize: "20px", fontWeight: "700", color: "#000" }}>Customer {historyCustomer.name}</h2>
+                <div style={{ marginTop: "8px", fontSize: "13px", color: "#333" }}>
+                  Mobile: {historyCustomer.mobile} • Current Balance: <span style={{ fontWeight: "700" }}>{Number(historyCustomer.balance || 0).toFixed(0)}</span>
                 </div>
                 {/* Date Filters */}
                 <div style={{ display: "flex", gap: "10px", marginTop: "12px", alignItems: "center", flexWrap: "wrap" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                    <label style={{ fontSize: "12px", color: "#6b7280", fontWeight: "600" }}>From:</label>
+                    <label style={{ fontSize: "12px", color: "#333", fontWeight: "600" }}>From:</label>
                     <input
                       type="date"
                       value={historyStartDate}
                       onChange={(e) => setHistoryStartDate(e.target.value)}
                       style={{
                         padding: "8px 10px",
-                        border: "1px solid #d1d5db",
-                        borderRadius: "6px",
+                        border: "1px solid #000",
+                        borderRadius: "4px",
                         fontSize: "13px",
-                        color: "#374151",
+                        color: "#000",
                       }}
                     />
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                    <label style={{ fontSize: "12px", color: "#6b7280", fontWeight: "600" }}>To:</label>
+                    <label style={{ fontSize: "12px", color: "#333", fontWeight: "600" }}>To:</label>
                     <input
                       type="date"
                       value={historyEndDate}
                       onChange={(e) => setHistoryEndDate(e.target.value)}
                       style={{
                         padding: "8px 10px",
-                        border: "1px solid #d1d5db",
-                        borderRadius: "6px",
+                        border: "1px solid #000",
+                        borderRadius: "4px",
                         fontSize: "13px",
-                        color: "#374151",
+                        color: "#000",
                       }}
                     />
                   </div>
@@ -986,10 +962,10 @@ export default function Customers() {
                       }}
                       style={{
                         padding: "8px 12px",
-                        background: "#fee2e2",
-                        color: "#dc2626",
-                        border: "none",
-                        borderRadius: "6px",
+                        background: "#fff",
+                        color: "#000",
+                        border: "1px solid #000",
+                        borderRadius: "4px",
                         cursor: "pointer",
                         fontSize: "12px",
                         fontWeight: "700",
@@ -1004,29 +980,17 @@ export default function Customers() {
                   onClick={generateCustomerHistoryPdf}
                   disabled={historyLoading || historyRows.length === 0}
                   style={{
-                    background: historyLoading || historyRows.length === 0 ? "#e5e7eb" : "linear-gradient(135deg, #8b5cf6, #7c3aed)",
+                    background: historyLoading || historyRows.length === 0 ? "#ccc" : "#000",
                     border: "none",
                     fontSize: "14px",
                     cursor: historyLoading || historyRows.length === 0 ? "not-allowed" : "pointer",
-                    color: historyLoading || historyRows.length === 0 ? "#9ca3af" : "white",
+                    color: "#fff",
                     padding: "10px 14px",
-                    borderRadius: "8px",
+                    borderRadius: "4px",
                     fontWeight: "700",
                     display: "flex",
                     alignItems: "center",
                     gap: "6px",
-                    transition: "all 0.15s",
-                    boxShadow: historyLoading || historyRows.length === 0 ? "none" : "0 2px 8px rgba(139, 92, 246, 0.3)",
-                  }}
-                  onMouseOver={(e) => {
-                    if (!historyLoading && historyRows.length > 0) {
-                      e.currentTarget.style.transform = "translateY(-1px)";
-                      e.currentTarget.style.boxShadow = "0 4px 12px rgba(139, 92, 246, 0.4)";
-                    }
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.transform = "translateY(0)";
-                    e.currentTarget.style.boxShadow = !historyLoading && historyRows.length > 0 ? "0 2px 8px rgba(139, 92, 246, 0.3)" : "none";
                   }}>
                   <span style={{ fontSize: "16px" }}>📄</span>
                   Download PDF
@@ -1034,25 +998,22 @@ export default function Customers() {
                 <button
                   onClick={closeHistoryModal}
                   style={{
-                    background: "#f3f4f6",
-                    border: "none",
+                    background: "#fff",
+                    border: "1px solid #000",
                     fontSize: "20px",
                     cursor: "pointer",
-                    color: "#6b7280",
+                    color: "#000",
                     padding: "8px 12px",
-                    borderRadius: "8px",
+                    borderRadius: "4px",
                     lineHeight: 1,
-                    transition: "background 0.15s",
-                  }}
-                  onMouseOver={(e) => (e.currentTarget.style.background = "#e5e7eb")}
-                  onMouseOut={(e) => (e.currentTarget.style.background = "#f3f4f6")}>
+                  }}>
                   ✕
                 </button>
               </div>
             </div>
 
             {/* Content */}
-            <div style={{ paddingBottom: 32, maxHeight: "calc(85vh - 90px)", overflowY: "auto" }}>
+            <div style={{ padding: "20px 24px", maxHeight: "calc(85vh - 90px)", overflowY: "auto" }}>
               {historyLoading ? (
                 <div style={{ padding: "48px", textAlign: "center", color: "#6b7280" }}>Loading transactions...</div>
               ) : historyError ? (
@@ -1060,69 +1021,32 @@ export default function Customers() {
               ) : historyRows.length === 0 ? (
                 <div style={{ padding: "48px", textAlign: "center", color: "#9ca3af" }}>No transactions found (last 30 days)</div>
               ) : (
-                <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
-                  <thead>
-                    <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}>
-                      <th style={{ ...historyThStyle, width: "140px" }}>Date</th>
-                      <th style={{ ...historyThStyle, width: "110px" }}>Qty (Kg)</th>
-                      <th style={{ ...historyThStyle, width: "260px" }}>Info</th>
-                      <th style={{ ...historyThStyle, width: "140px" }}>Bill</th>
-                      <th style={{ ...historyThStyle, width: "160px" }}>Payment Done</th>
-                      <th style={{ ...historyThStyle, width: "150px" }}>Due Balance</th>
-                      <th style={{ ...historyThStyle, width: "130px" }}>Type</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {historyRows.map((row) => (
-                      <tr key={row.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                        <td style={historyTdStyle}>{formatDate(row.date)}</td>
-                        <td style={historyTdStyle}>{row.qtyKg ? Number(row.qtyKg).toFixed(2) : "-"}</td>
-                        <td
-                          style={{
-                            ...historyTdStyle,
-                            color: "#374151",
-                            maxWidth: "260px",
-                            whiteSpace: "normal",
-                            wordBreak: "break-word",
-                            overflowWrap: "anywhere",
-                          }}>
-                          {row.info}
-                        </td>
-                        <td style={historyTdStyle}>
-                          <span style={{ fontWeight: "700", color: "#111827" }}>Rs.{Number(row.bill).toFixed(2)}</span>
-                        </td>
-                        <td style={historyTdStyle}>
-                          <span style={{ fontWeight: "700", color: "#111827" }}>Rs.{Number(row.paid).toFixed(2)}</span>
-                        </td>
-                        <td style={historyTdStyle}>
-                          <span style={{ fontWeight: "700", color: Number(row.balanceAfter) > 0 ? "#dc2626" : "#059669" }}>Rs.{Number(row.balanceAfter).toFixed(2)}</span>
-                          <div
-                            style={{
-                              marginTop: "3px",
-                              fontSize: "12px",
-                              fontWeight: "700",
-                              color: Number(row.change) > 0 ? "#dc2626" : Number(row.change) < 0 ? "#059669" : "#9ca3af",
-                            }}>
-                            {Number(row.change) > 0 ? "+" : Number(row.change) < 0 ? "-" : ""}Rs.{Math.abs(Number(row.change)).toFixed(2)}
-                          </div>
-                        </td>
-                        <td style={historyTdStyle}>
-                          <span
-                            style={{
-                              padding: "4px 10px",
-                              borderRadius: "999px",
-                              fontSize: "12px",
-                              fontWeight: "600",
-                              background: row.type === "Sell" ? "#dbeafe" : row.type === "Debit Note" ? "#fee2e2" : "#d1fae5",
-                              color: row.type === "Sell" ? "#1e40af" : row.type === "Debit Note" ? "#991b1b" : "#065f46",
-                            }}>
-                            {row.type}
-                          </span>
-                        </td>
+                <div style={{ border: "2px solid #000", borderRadius: "4px", overflow: "hidden" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ borderBottom: "2px solid #000" }}>
+                        <th style={simpleThStyle}>Quantity</th>
+                        <th style={simpleThStyle}>Type</th>
+                        <th style={simpleThStyle}>Rate</th>
+                        <th style={simpleThStyle}>Amt</th>
+                        <th style={simpleThStyle}>Deposit</th>
+                        <th style={simpleThStyle}>Balance</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {historyRows.map((row) => (
+                        <tr key={row.id} style={{ borderBottom: "1px solid #000" }}>
+                          <td style={simpleTdStyle}>{row.qtyKg ? Number(row.qtyKg).toFixed(0) : "-"}</td>
+                          <td style={simpleTdStyle}>{row.type}</td>
+                          <td style={simpleTdStyle}>{row.rate ? Number(row.rate).toFixed(0) : "-"}</td>
+                          <td style={simpleTdStyle}>{Number(row.bill).toFixed(0)}</td>
+                          <td style={simpleTdStyle}>{Number(row.paid).toFixed(0)}</td>
+                          <td style={simpleTdStyle}>{Number(row.balanceAfter).toFixed(0)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
           </div>
@@ -1146,19 +1070,21 @@ const tdStyle: React.CSSProperties = {
   color: "#6b7280",
 };
 
-const historyThStyle: React.CSSProperties = {
-  padding: "14px 16px",
-  textAlign: "left",
-  fontSize: "12px",
-  fontWeight: "700",
-  color: "#6b7280",
-  textTransform: "uppercase",
-  letterSpacing: "0.5px",
+const simpleThStyle: React.CSSProperties = {
+  padding: "12px 16px",
+  textAlign: "center",
+  fontSize: "14px",
+  fontWeight: "600",
+  color: "#000",
+  background: "#fff",
+  borderRight: "1px solid #000",
 };
 
-const historyTdStyle: React.CSSProperties = {
-  padding: "14px 16px",
+const simpleTdStyle: React.CSSProperties = {
+  padding: "10px 16px",
   fontSize: "14px",
-  color: "#374151",
-  verticalAlign: "top",
+  color: "#000",
+  textAlign: "center",
+  background: "#fff",
+  borderRight: "1px solid #000",
 };

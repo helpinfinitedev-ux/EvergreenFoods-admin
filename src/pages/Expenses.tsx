@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { adminAPI, bankAPI, expenseAPI } from "../api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { Autocomplete, TextField, Box, Typography } from "@mui/material";
 
 interface Expense {
   id: string;
@@ -11,6 +12,18 @@ interface Expense {
   category: string | null;
   date: string;
   bankId?: string | null;
+  driverId?: string | null;
+  driver?: {
+    id: string;
+    name: string;
+  } | null;
+}
+
+interface Driver {
+  id: string;
+  name: string;
+  mobile: string;
+  status: string;
 }
 
 interface ExpenseSummary {
@@ -31,6 +44,7 @@ export default function Expenses() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [summary, setSummary] = useState<ExpenseSummary | null>(null);
   const [banks, setBanks] = useState<Bank[]>([]);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -48,6 +62,7 @@ export default function Expenses() {
   const [formCategory, setFormCategory] = useState("");
   const [formDate, setFormDate] = useState(new Date().toISOString().split("T")[0]);
   const [formBankId, setFormBankId] = useState("");
+  const [formDriver, setFormDriver] = useState<Driver | null>(null);
 
   // Edit form state
   const [editType, setEditType] = useState<"CASH" | "BANK">("CASH");
@@ -56,14 +71,29 @@ export default function Expenses() {
   const [editCategory, setEditCategory] = useState("");
   const [editDate, setEditDate] = useState(new Date().toISOString().split("T")[0]);
   const [editBankId, setEditBankId] = useState("");
+  const [editDriver, setEditDriver] = useState<Driver | null>(null);
 
   useEffect(() => {
     loadData();
+    loadDrivers();
   }, []);
 
   useEffect(() => {
     loadBanks();
   }, []);
+
+  // Reset driver when category changes away from Salary
+  useEffect(() => {
+    if (formCategory !== "Salary") {
+      setFormDriver(null);
+    }
+  }, [formCategory]);
+
+  useEffect(() => {
+    if (editCategory !== "Salary") {
+      setEditDriver(null);
+    }
+  }, [editCategory]);
 
   useEffect(() => {
     if (showModal) {
@@ -117,6 +147,15 @@ export default function Expenses() {
     }
   };
 
+  const loadDrivers = async () => {
+    try {
+      const res = await adminAPI.getDrivers();
+      setDrivers(res.data || []);
+    } catch (err) {
+      console.error("Failed to load drivers", err);
+    }
+  };
+
   const loadTotals = async () => {
     try {
       const [capitalRes, bankRes] = await Promise.all([adminAPI.getTotalCapital(), bankAPI.getDetails()]);
@@ -148,6 +187,7 @@ export default function Expenses() {
         category: formCategory || undefined,
         date: formDate,
         bankId: formType === "BANK" ? formBankId : undefined,
+        driverId: formDriver ? formDriver.id : undefined,
       });
 
       alert("Expense added successfully");
@@ -177,6 +217,7 @@ export default function Expenses() {
     setFormCategory("");
     setFormDate(new Date().toISOString().split("T")[0]);
     setFormBankId("");
+    setFormDriver(null);
   };
 
   const openEditModal = (expense: Expense) => {
@@ -187,6 +228,13 @@ export default function Expenses() {
     setEditCategory(expense.category || "");
     setEditDate(expense.date ? expense.date.split("T")[0] : new Date().toISOString().split("T")[0]);
     setEditBankId(expense.bankId || "");
+    // Set driver if exists
+    if (expense.driverId && expense.driver) {
+      const driver = drivers.find((d) => d.id === expense.driverId);
+      setEditDriver(driver || null);
+    } else {
+      setEditDriver(null);
+    }
     loadTotals();
     setShowEditModal(true);
   };
@@ -200,6 +248,7 @@ export default function Expenses() {
     setEditCategory("");
     setEditDate(new Date().toISOString().split("T")[0]);
     setEditBankId("");
+    setEditDriver(null);
   };
 
   const handleUpdate = async () => {
@@ -220,6 +269,7 @@ export default function Expenses() {
         category: editCategory || undefined,
         date: editDate,
         bankId: editType === "BANK" ? editBankId : undefined,
+        driverId: editCategory === "Salary" && editDriver ? editDriver.id : undefined,
       });
       closeEditModal();
       loadData();
@@ -430,6 +480,7 @@ export default function Expenses() {
               <th style={thStyle}>Date</th>
               <th style={thStyle}>Type</th>
               <th style={thStyle}>Category</th>
+              <th style={thStyle}>Driver</th>
               <th style={thStyle}>Description</th>
               <th style={thStyle}>Amount</th>
               <th style={thStyle}>Actions</th>
@@ -472,6 +523,7 @@ export default function Expenses() {
                     </span>
                   </td>
                   <td style={tdStyle}>{expense.category || "-"}</td>
+                  <td style={tdStyle}>{expense.driver?.name || "-"}</td>
                   <td style={tdStyle}>{expense.description}</td>
                   <td style={{ ...tdStyle, fontWeight: "600", color: "#dc2626" }}>₹{Number(expense.amount).toLocaleString()}</td>
                   <td style={tdStyle}>
@@ -627,6 +679,28 @@ export default function Expenses() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* Driver Selection - Show when Salary category */}
+            <div style={{ marginBottom: "20px" }}>
+              <label style={labelStyle}>Driver *</label>
+              <Autocomplete
+                options={drivers}
+                getOptionLabel={(option) => option.name}
+                value={editDriver}
+                onChange={(_event, newValue) => setEditDriver(newValue)}
+                renderOption={(props, option) => (
+                  <li {...props} key={option.id}>
+                    <Box>
+                      <Typography variant="body2">{option.name}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {option.mobile} • {option.status}
+                      </Typography>
+                    </Box>
+                  </li>
+                )}
+                renderInput={(params) => <TextField {...params} label="Select Driver" placeholder="Search driver by name" size="small" />}
+              />
             </div>
 
             {/* Date */}
@@ -792,6 +866,29 @@ export default function Expenses() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* Driver Selection - Show when Salary category */}
+
+            <div style={{ marginBottom: "20px" }}>
+              <label style={labelStyle}>Driver *</label>
+              <Autocomplete
+                options={drivers}
+                getOptionLabel={(option) => option.name}
+                value={formDriver}
+                onChange={(_event, newValue) => setFormDriver(newValue)}
+                renderOption={(props, option) => (
+                  <li {...props} key={option.id}>
+                    <Box>
+                      <Typography variant="body2">{option.name}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {option.mobile} • {option.status}
+                      </Typography>
+                    </Box>
+                  </li>
+                )}
+                renderInput={(params) => <TextField {...params} label="Select Driver" placeholder="Search driver by name" size="small" />}
+              />
             </div>
 
             {/* Date */}

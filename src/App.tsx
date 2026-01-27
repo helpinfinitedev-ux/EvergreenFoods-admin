@@ -75,9 +75,6 @@ function ProtectedLayout() {
           <NavItem active={location.pathname === "/vehicles"} onClick={() => navigate("/vehicles")}>
             🚛 Vehicles
           </NavItem>
-          <NavItem active={location.pathname === "/customers"} onClick={() => navigate("/customers")}>
-            💰 Customers
-          </NavItem>
 
           <NavItem active={location.pathname === "/bought"} onClick={() => navigate("/bought")}>
             🛒 Bought
@@ -85,21 +82,25 @@ function ProtectedLayout() {
           <NavItem active={location.pathname === "/sold"} onClick={() => navigate("/sold")}>
             💰 Sold
           </NavItem>
-          <NavItem active={location.pathname === "/transactions"} onClick={() => navigate("/transactions")}>
-            📝 Transactions
-          </NavItem>
-          <NavItem active={location.pathname === "/expenses"} onClick={() => navigate("/expenses")}>
-            💸 Expenses
-          </NavItem>
           <NavItem active={location.pathname === "/payments"} onClick={() => navigate("/payments")}>
             💳 Payments
-          </NavItem>
-          <NavItem active={location.pathname === "/companies"} onClick={() => navigate("/companies")}>
-            🏢 My Companies
           </NavItem>
           <NavItem active={location.pathname === "/payments-received"} onClick={() => navigate("/payments-received")}>
             ✅ Payments Received
           </NavItem>
+          <NavItem active={location.pathname === "/transactions"} onClick={() => navigate("/transactions")}>
+            📝 Transactions
+          </NavItem>
+          <NavItem active={location.pathname === "/customers"} onClick={() => navigate("/customers")}>
+            💰 Customers
+          </NavItem>
+          <NavItem active={location.pathname === "/companies"} onClick={() => navigate("/companies")}>
+            🏢 My Companies
+          </NavItem>
+          <NavItem active={location.pathname === "/expenses"} onClick={() => navigate("/expenses")}>
+            💸 Expenses
+          </NavItem>
+
           <NavItem active={location.pathname === "/my-udhaar"} onClick={() => navigate("/my-udhaar")}>
             📒 My Udhaar
           </NavItem>

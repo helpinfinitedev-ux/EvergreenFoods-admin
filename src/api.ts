@@ -26,12 +26,16 @@ export const adminAPI = {
     return api.get("/admin/dashboard", { params });
   },
   getDrivers: () => api.get("/admin/drivers"),
+  getDriversActivitySummary: (params: { start: string; end: string }) => api.get("/admin/drivers/activity-summary", { params }),
   createDriver: (data: { name: string; mobile: string; password: string; baseSalary?: number }) => api.post("/admin/drivers", data),
   updateDriver: (id: string, data: { password?: string; baseSalary?: number }) => api.put(`/admin/drivers/${id}`, data),
   deleteDriver: (id: string) => api.delete(`/admin/drivers/${id}`),
   updateDriverStatus: (id: string, status: string) => api.put(`/admin/drivers/${id}/status`, { status }),
   getDueCustomers: (params?: { startDate?: string; endDate?: string }) => api.get("/admin/customers/due", { params }),
-  receiveCustomerPayment: (data: { driverId?: string; customerId?: string; companyId?: string; amount: number; method: "CASH" | "BANK"; bankId?: string }) => api.post(`/admin/receive-payment`, data),
+  receiveCustomerPayment: (data: { driverId?: string; customerId?: string; companyId?: string; amount: number; method: "CASH" | "BANK"; bankId?: string }) => {
+    console.log(data);
+    return api.post(`/admin/receive-payment`, data);
+  },
   getBorrowedInfo: () => api.get("/admin/borrowed-money"),
   addBorrowedInfo: (data: { borrowedMoney?: number; borrowedFrom?: string; borrowedOn?: string }) => api.post("/admin/borrowed-money", data),
   updateBorrowedInfo: (id: string, data: { borrowedMoney?: number; borrowedFrom?: string; borrowedOn?: string }) => api.put(`/admin/borrowed-money/${id}`, data),
@@ -40,12 +44,14 @@ export const adminAPI = {
   createCashToBank: (data: { bankName: string; amount: number; date: string; bankId: string }) => api.post("/admin/cash-to-bank", data),
   updateCashToBank: (id: string, data: { bankName?: string; amount?: number }) => api.put(`/admin/cash-to-bank/${id}`, data),
   deleteCashToBank: (id: string) => api.delete(`/admin/cash-to-bank/${id}`),
-  getTransactions: (params?: any) => api.get("/admin/transactions", { params }),
+    getTransactions: (params?: any) => api.get("/admin/transactions", { params }),
   getDriverHistory: (driverId: string, params?: { type?: string; startDate?: string; endDate?: string }) => api.get("/admin/transactions", { params: { driverId, ...params } }),
   updateTransaction: (id: string, data: { amount?: number; rate?: number; totalAmount?: number; details?: string | null; companyId?: string; customerId?: string; driverId?: string; entityType?: string }) => api.put(`/admin/transactions/${id}`, data),
   deleteTransaction: (id: string) => api.delete(`/admin/transactions/${id}`),
   createFinancialNote: (data: any) => api.post("/admin/financial/note", data),
   getTotalCapital: () => api.get("/admin/total-capital"),
+  getPaymentsReceived: (id: string, params: { entityType: string; start?: string; end?: string; page?: number }) =>
+    api.get(`/admin/payments-received/${id}`, { params }),
 };
 
 export const bankAPI = {
@@ -72,6 +78,7 @@ export const customerAPI = {
 
 export const companyAPI = {
   getAll: (params?: { page?: number; name?: string; mobile?: string; address?: string }) => api.get("/admin/companies", { params }),
+  getHistory: (id: string) => api.get(`/admin/companies/${id}/history`),
   create: (data: { name: string; mobile?: string; address?: string; amountDue?: number }) => api.post("/admin/companies", data),
   update: (id: string, data: { name?: string; mobile?: string | null; address?: string | null; amountDue?: number }) => api.patch(`/admin/companies/${id}`, data),
   delete: (id: string) => api.delete(`/admin/companies/${id}`),
@@ -86,9 +93,9 @@ export const notificationAPI = {
 
 export const expenseAPI = {
   getAll: (params?: { type?: string; startDate?: string; endDate?: string; category?: string }) => api.get("/admin/expenses", { params }),
-    getSummary: (params?: { startDate?: string; endDate?: string }) => api.get("/admin/expenses/summary", { params }),
-  create: (data: { type: "CASH" | "BANK"; amount: number; description: string; category?: string; date?: string; bankId?: string }) => api.post("/admin/expenses", data),
-  update: (id: string, data: { type?: string; amount?: number; description?: string; category?: string; date?: string }) => api.put(`/admin/expenses/${id}`, data),
+  getSummary: (params?: { startDate?: string; endDate?: string }) => api.get("/admin/expenses/summary", { params }),
+  create: (data: { type: "CASH" | "BANK"; amount: number; description: string; category?: string; date?: string; bankId?: string; driverId?: string }) => api.post("/admin/expenses", data),
+  update: (id: string, data: { type?: string; amount?: number; description?: string; category?: string; date?: string; bankId?: string; driverId?: string }) => api.put(`/admin/expenses/${id}`, data),
   delete: (id: string) => api.delete(`/admin/expenses/${id}`),
 };
 

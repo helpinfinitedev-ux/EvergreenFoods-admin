@@ -130,6 +130,18 @@ export default function Drivers() {
     });
   };
 
+  // Check if driver was updated today
+  const isUpdatedToday = (updatedAt: string | undefined) => {
+    if (!updatedAt) return false;
+    const updated = new Date(updatedAt);
+    const today = new Date();
+    return (
+      updated.getDate() === today.getDate() &&
+      updated.getMonth() === today.getMonth() &&
+      updated.getFullYear() === today.getFullYear()
+    );
+  };
+
   // Format number with Indian style commas (no spaces)
   const formatIndianNumber = (num: number): string => {
     const numStr = Math.round(num).toString();
@@ -571,7 +583,29 @@ export default function Drivers() {
                   onClick={() => openHistoryModal(driver)}
                   onMouseOver={(e) => (e.currentTarget.style.background = "#f9fafb")}
                   onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}>
-                  <td style={tdStyle}>{driver.name}</td>
+                  <td style={tdStyle}>
+                    <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      {driver.name}
+                      {isUpdatedToday(driver.updatedAt) && (
+                        <span
+                          title="Active today"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: "18px",
+                            height: "18px",
+                            borderRadius: "50%",
+                            backgroundColor: "#3b82f6",
+                            color: "white",
+                            fontSize: "11px",
+                            fontWeight: "bold",
+                          }}>
+                          ✓
+                        </span>
+                      )}
+                    </span>
+                  </td>
                   <td style={tdStyle}>{driver.mobile}</td>
                   <td style={tdStyle}>
                     <span
