@@ -152,12 +152,7 @@ export default function Companies() {
       const balanceAfter = runningBalance;
       runningBalance = runningBalance - change;
 
-      const typeLabel =
-        t.type === "BUY" ? "BUY" :
-        t.type === "DEBIT_NOTE" ? "DEBIT" :
-        t.type === "CREDIT_NOTE" ? "CREDIT" :
-        t.type === "PAYMENT" ? "PAYMENT" :
-        String(t.type || "-");
+      const typeLabel = t.type === "BUY" ? "BUY" : t.type === "DEBIT_NOTE" ? "DEBIT" : t.type === "CREDIT_NOTE" ? "CREDIT" : t.type === "PAYMENT" ? "PAYMENT" : String(t.type || "-");
 
       let qtyKg: number | null = null;
       if (t.type === "BUY") {
@@ -208,9 +203,10 @@ export default function Companies() {
     doc.text("Company " + historyCompany.name, pageWidth / 2, 20, { align: "center" });
 
     // Simple table headers matching the format
-    const headers = ["Quantity", "Type", "Rate", "Amt", "Deposit", "Balance"];
+    const headers = ["Date", "Quantity", "Type", "Rate", "Amt", "Deposit", "Balance"];
     const rows = historyRows.map((row) => {
       return [
+        formatDatePdf(row.date),
         row.qtyKg ? Number(row.qtyKg).toFixed(0) : "-",
         row.type,
         row.rate ? Number(row.rate).toFixed(0) : "-",
@@ -250,12 +246,13 @@ export default function Companies() {
       tableLineColor: [0, 0, 0],
       tableLineWidth: 0.5,
       columnStyles: {
-        0: { cellWidth: 28 },
-        1: { cellWidth: 24 },
+        0: { cellWidth: 22 },
+        1: { cellWidth: 28 },
         2: { cellWidth: 24 },
-        3: { cellWidth: 28 },
+        3: { cellWidth: 24 },
         4: { cellWidth: 28 },
-        5: { cellWidth: 32 },
+        5: { cellWidth: 28 },
+        6: { cellWidth: 32 },
       },
       tableWidth: "auto",
       margin: { left: 14, right: 14 },
@@ -963,6 +960,7 @@ export default function Companies() {
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
                       <tr style={{ borderBottom: "2px solid #000" }}>
+                        <th style={simpleThStyle}>Date</th>
                         <th style={simpleThStyle}>Quantity</th>
                         <th style={simpleThStyle}>Type</th>
                         <th style={simpleThStyle}>Rate</th>
@@ -974,6 +972,7 @@ export default function Companies() {
                     <tbody>
                       {historyRows.map((row) => (
                         <tr key={row.id} style={{ borderBottom: "1px solid #000" }}>
+                          <td style={simpleTdStyle}>{formatDatePdf(row.date)}</td>
                           <td style={simpleTdStyle}>{row.qtyKg ? Number(row.qtyKg).toFixed(0) : "-"}</td>
                           <td style={simpleTdStyle}>{row.type}</td>
                           <td style={simpleTdStyle}>{row.rate ? Number(row.rate).toFixed(0) : "-"}</td>
