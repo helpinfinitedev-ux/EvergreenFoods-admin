@@ -215,12 +215,12 @@ export default function Companies() {
     const rows = historyRows.map((row) => {
       return [
         formatDatePdf(row.date),
-        row.qtyKg ? Number(row.qtyKg).toFixed(0) : "-",
+        row.qtyKg ? Number(row.qtyKg).toFixed(2) : "-",
         row.type,
-        row.rate ? Number(row.rate).toFixed(0) : "-",
-        Number(row.bill || 0).toFixed(0),
-        Number(row.paid || 0).toFixed(0),
-        Number(row.balanceAfter || 0).toFixed(0),
+        row.rate ? Number(row.rate).toFixed(2) : "-",
+        Number(row.bill || 0).toFixed(2),
+        Number(row.paid || 0).toFixed(2),
+        Number(row.balanceAfter || 0).toFixed(2),
       ];
     });
 

@@ -15,7 +15,15 @@ interface CustomerTransaction {
   rate?: number | string | null;
   details?: string | null;
   date: string;
+  createdAt?: string;
 }
+
+const formatDatePdf = (dateString: string) =>
+  new Date(dateString).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 
 export default function Customers() {
   const [customers, setCustomers] = useState<any[]>([]);
@@ -78,12 +86,12 @@ export default function Customers() {
     const headers = ["Quantity", "Type", "Rate", "Amt", "Deposit", "Balance"];
     const rows = historyRows.map((row) => {
       return [
-        row.qtyKg ? Number(row.qtyKg).toFixed(0) : "-",
+        row.qtyKg ? Number(row.qtyKg).toFixed(2) : "-",
         row.type,
-        row.rate ? Number(row.rate).toFixed(0) : "-",
-        Number(row.bill || 0).toFixed(0),
-        Number(row.paid || 0).toFixed(0),
-        Number(row.balanceAfter || 0).toFixed(0),
+        row.rate ? Number(row.rate).toFixed(2) : "-",
+        Number(row.bill || 0).toFixed(2),
+        Number(row.paid || 0).toFixed(2),
+        Number(row.balanceAfter || 0).toFixed(2),
       ];
     });
 
@@ -351,6 +359,7 @@ export default function Customers() {
 
       return {
         id: t.id,
+        createdAt: t.createdAt,
         date: t.date,
         type: typeLabel,
         info: infoParts.join(" • ") || "-",
@@ -371,7 +380,7 @@ export default function Customers() {
     const end = historyEndDate ? new Date(historyEndDate + "T23:59:59.999") : null;
 
     return historyRowsAll.filter((row) => {
-      const d = new Date(row.date);
+      const d = new Date(row.createdAt);
       if (start && d < start) return false;
       if (end && d > end) return false;
       return true;
@@ -1036,6 +1045,7 @@ export default function Customers() {
                     <tbody>
                       {historyRows.map((row) => (
                         <tr key={row.id} style={{ borderBottom: "1px solid #000" }}>
+                          <td style={simpleTdStyle}>{formatDatePdf(row.createdAt || "")}</td>
                           <td style={simpleTdStyle}>{row.qtyKg ? Number(row.qtyKg).toFixed(0) : "-"}</td>
                           <td style={simpleTdStyle}>{row.type}</td>
                           <td style={simpleTdStyle}>{row.rate ? Number(row.rate).toFixed(0) : "-"}</td>
