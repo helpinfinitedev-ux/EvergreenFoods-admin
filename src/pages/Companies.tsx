@@ -29,6 +29,7 @@ interface CompanyTransaction {
   rate?: number | string | null;
   details?: string | null;
   date: string;
+  createdAt?: string;
 }
 
 const initialForm: CompanyForm = {
@@ -105,6 +106,8 @@ export default function Companies() {
     }
   };
 
+  console.log(historyTransactions);
+
   const openHistoryModal = (company: Company) => {
     setHistoryCompany(company);
     setHistoryTransactions([]);
@@ -169,6 +172,7 @@ export default function Companies() {
       return {
         id: t.id,
         date: t.date,
+        createdAt: t.createdAt,
         type: typeLabel,
         bill,
         paid,
@@ -187,7 +191,7 @@ export default function Companies() {
     const end = historyEndDate ? new Date(historyEndDate + "T23:59:59.999") : null;
 
     return historyRowsAll.filter((row) => {
-      const d = new Date(row.date);
+      const d = new Date(row.createdAt);
       if (start && d < start) return false;
       if (end && d > end) return false;
       return true;
@@ -976,7 +980,7 @@ export default function Companies() {
                     <tbody>
                       {historyRows.map((row) => (
                         <tr key={row.id} style={{ borderBottom: "1px solid #000" }}>
-                          <td style={simpleTdStyle}>{formatDatePdf(row.date)}</td>
+                          <td style={simpleTdStyle}>{formatDatePdf(row.createdAt || "")}</td>
                           <td style={simpleTdStyle}>{row.qtyKg ? Number(row.qtyKg).toFixed(0) : "-"}</td>
                           <td style={simpleTdStyle}>{row.type}</td>
                           <td style={simpleTdStyle}>{row.rate ? Number(row.rate).toFixed(0) : "-"}</td>
