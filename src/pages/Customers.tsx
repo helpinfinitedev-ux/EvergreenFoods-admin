@@ -382,7 +382,7 @@ export default function Customers() {
     const end = historyEndDate ? new Date(historyEndDate + "T23:59:59.999") : null;
 
     return historyRowsAll.filter((row) => {
-      const d = new Date(row.createdAt);
+      const d = new Date(row.createdAt as string);
       if (start && d < start) return false;
       if (end && d > end) return false;
       return true;
@@ -1036,6 +1036,7 @@ export default function Customers() {
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
                       <tr style={{ borderBottom: "2px solid #000" }}>
+                        <th style={simpleThStyle}>Date</th>
                         <th style={simpleThStyle}>Quantity</th>
                         <th style={simpleThStyle}>Type</th>
                         <th style={simpleThStyle}>Rate</th>
