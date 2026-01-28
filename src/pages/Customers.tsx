@@ -349,11 +349,11 @@ export default function Customers() {
 
       const infoParts: string[] = [];
       let qtyKg: number | null = null;
-      if (t.type === "SELL") {
-        const qty = Number(t.amount || 0);
-        qtyKg = qty;
-        infoParts.push(`${qty.toFixed(2)} Kg @ Rs.${rate ? rate.toFixed(2) : "-"}`);
-      } else if (t.type === "DEBIT_NOTE" || t.type === "CREDIT_NOTE") {
+      const qty = Number(t.amount || 0);
+      qtyKg = qty;
+      infoParts.push(`${qty.toFixed(2)} Kg @ Rs.${rate ? rate.toFixed(2) : "-"}`);
+
+      if (t.type === "DEBIT_NOTE" || t.type === "CREDIT_NOTE") {
         const qty = Number(t.amount || 0);
         if (qty > 0) qtyKg = qty;
       }

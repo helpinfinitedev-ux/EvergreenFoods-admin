@@ -162,9 +162,9 @@ export default function Companies() {
       const typeLabel = t.type === "BUY" ? "BUY" : t.type === "DEBIT_NOTE" ? "DEBIT" : t.type === "CREDIT_NOTE" ? "CREDIT" : t.type === "PAYMENT" ? "PAYMENT" : String(t.type || "-");
 
       let qtyKg: number | null = null;
-      if (t.type === "BUY") {
-        qtyKg = Number(t.amount || 0);
-      } else if (t.type === "DEBIT_NOTE" || t.type === "CREDIT_NOTE") {
+
+      qtyKg = Number(t.amount || 0);
+      if (t.type === "DEBIT_NOTE" || t.type === "CREDIT_NOTE") {
         const qty = Number(t.amount || 0);
         if (qty > 0) qtyKg = qty;
       }
