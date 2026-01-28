@@ -1,11 +1,31 @@
 import { useEffect, useState } from "react";
-import { adminAPI, expenseAPI, companyAPI } from "../api";
+import { adminAPI, expenseAPI, companyAPI, bankAPI } from "../api";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs, { Dayjs } from "dayjs";
-import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Typography, Box, Chip, TextField, InputAdornment } from "@mui/material";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Typography,
+  Box,
+  Chip,
+  TextField,
+  InputAdornment,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+} from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
+import EditIcon from "@mui/icons-material/Edit";
 
 interface ExpenseSummary {
   cashTotal: number;
@@ -45,17 +65,27 @@ export default function Dashboard() {
   const [driverSearch, setDriverSearch] = useState("");
   const [driverTableDate, setDriverTableDate] = useState<Dayjs>(dayjs());
 
+  // Edit Bank Modal State
+  const [editBankModalOpen, setEditBankModalOpen] = useState(false);
+  const [editingBank, setEditingBank] = useState<{ id: string; name: string; balance: number } | null>(null);
+  const [editBankBalance, setEditBankBalance] = useState("");
+  const [editBankSubmitting, setEditBankSubmitting] = useState(false);
+
+  // Edit Total Capital Modal State
+  const [editCapitalModalOpen, setEditCapitalModalOpen] = useState(false);
+  const [editCapitalAmount, setEditCapitalAmount] = useState("");
+  const [editCapitalSubmitting, setEditCapitalSubmitting] = useState(false);
+
   useEffect(() => {
-    const loadStats = async (date:Date) => {
+    const loadStats = async (date: Date) => {
       try {
         // Get today's expenses
         const startDate = new Date(date);
         startDate.setHours(0, 0, 0, 0);
-        
+
         const endDate = new Date(date);
         endDate.setHours(23, 59, 59, 999);
-        
-  
+
         const [dashboardRes, expenseRes, capitalRes, borrowedRes, companiesRes, driversActivityRes] = await Promise.all([
           adminAPI.getDashboard({ start: startDate.getTime(), end: endDate.getTime() }),
           expenseAPI.getSummary({
@@ -88,7 +118,7 @@ export default function Dashboard() {
         setLoading(false);
       }
     };
-    console.log(date)
+    console.log(date);
     loadStats(date);
   }, [date]);
 
@@ -98,7 +128,7 @@ export default function Dashboard() {
       try {
         const startDate = driverTableDate.startOf("day").toDate();
         const endDate = driverTableDate.endOf("day").toDate();
-        
+
         const driversActivityRes = await adminAPI.getDriversActivitySummary({
           start: startDate.toISOString(),
           end: endDate.toISOString(),
@@ -112,45 +142,105 @@ export default function Dashboard() {
   }, [driverTableDate]);
 
   // Filter drivers by search
-  const filteredDriversActivity = driversActivity.filter((driver) =>
-    driver.driverName?.toLowerCase().includes(driverSearch.toLowerCase())
-  );
+  const filteredDriversActivity = driversActivity.filter((driver) => driver.driverName?.toLowerCase().includes(driverSearch.toLowerCase()));
 
- 
+  // Handle opening bank edit modal
+  const handleOpenBankEdit = (bank: { id: string; name: string; balance: number }) => {
+    setEditingBank(bank);
+    setEditBankBalance(String(bank.balance));
+    setEditBankModalOpen(true);
+  };
+
+  // Handle bank balance update
+  const handleUpdateBankBalance = async () => {
+    if (!editingBank) return;
+    const numericBalance = Number(editBankBalance);
+    if (isNaN(numericBalance)) {
+      alert("Please enter a valid number");
+      return;
+    }
+    setEditBankSubmitting(true);
+    try {
+      await bankAPI.update(editingBank.id, { balance: numericBalance });
+      setEditBankModalOpen(false);
+      setEditingBank(null);
+      setEditBankBalance("");
+      // Reload stats to reflect changes
+      const startDate = new Date(date);
+      startDate.setHours(0, 0, 0, 0);
+      const endDate = new Date(date);
+      endDate.setHours(23, 59, 59, 999);
+      const dashboardRes = await adminAPI.getDashboard({ start: startDate.getTime(), end: endDate.getTime() });
+      setStats(dashboardRes.data);
+    } catch (err) {
+      console.error("Failed to update bank balance", err);
+      alert("Failed to update bank balance");
+    } finally {
+      setEditBankSubmitting(false);
+    }
+  };
+
+  // Handle opening capital edit modal
+  const handleOpenCapitalEdit = () => {
+    setEditCapitalAmount("");
+    setEditCapitalModalOpen(true);
+  };
+
+  // Handle total capital update
+  const handleUpdateTotalCapital = async () => {
+    const numericAmount = Number(editCapitalAmount);
+    if (isNaN(numericAmount)) {
+      alert("Please enter a valid number");
+      return;
+    }
+    setEditCapitalSubmitting(true);
+    try {
+      await adminAPI.updateTotalCapital(numericAmount);
+      setEditCapitalModalOpen(false);
+      setEditCapitalAmount("");
+      // Reload total capital
+      const capitalRes = await adminAPI.getTotalCapital();
+      setTotalCapital(capitalRes.data);
+    } catch (err) {
+      console.error("Failed to update total capital", err);
+      alert("Failed to update total capital");
+    } finally {
+      setEditCapitalSubmitting(false);
+    }
+  };
 
   if (loading) return <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>Loading...</div>;
   console.log(stats);
   return (
     <div style={{ padding: "30px" }}>
-      <div style = {{display:"flex", alignItems:"center", gap:"10px"}}>
-
-      <h1 style={{ marginBottom: "30px", fontSize: "28px", fontWeight: "700" }}>Dashboard</h1>
-      <LocalizationProvider dateAdapter={AdapterDayjs}>
-        <DatePicker
-          value={dayjs(date)}
-          onChange={(newValue: Dayjs | null) => {
-            if (newValue) {
-              setDate(newValue.toDate());
-            }
-          }}
-          slotProps={{ textField: { size: "small" } }}
-          disableFuture
-        />
-      </LocalizationProvider>
+      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <h1 style={{ marginBottom: "30px", fontSize: "28px", fontWeight: "700" }}>Dashboard</h1>
+        <LocalizationProvider dateAdapter={AdapterDayjs}>
+          <DatePicker
+            value={dayjs(date)}
+            onChange={(newValue: Dayjs | null) => {
+              if (newValue) {
+                setDate(newValue.toDate());
+              }
+            }}
+            slotProps={{ textField: { size: "small" } }}
+            disableFuture
+          />
+        </LocalizationProvider>
       </div>
 
       {/* Main Stats Grid */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
+          gridTemplateColumns: "repeat(3, 1fr)",
           gap: "24px",
           marginBottom: "30px",
         }}>
         <StatCard title="Total Available Stock" value={`${(stats?.totalAvailableStock || 0).toFixed(2)} KG`} color="#7c3aed" icon="📦" />
         <StatCard title="Today Buy" value={`${(stats?.todayBuy || 0)?.toFixed(2)} KG`} color="#10b981" icon="📥" />
         <StatCard title="Today Sell" value={`${(stats?.todaySell || 0)?.toFixed(2)} KG`} color="#3b82f6" icon="📤" />
-        <StatCard title="Today Shop Buy" value={`${(stats?.todayShopBuy || 0)?.toFixed(2)} KG`} color="#8b5cf6" icon="🛒" />
+        {/* <StatCard title="Today Shop Buy" value={`${(stats?.todayShopBuy || 0)?.toFixed(2)} KG`} color="#8b5cf6" icon="🛒" /> */}
       </div>
 
       {/* Driver Activity Table */}
@@ -202,13 +292,27 @@ export default function Dashboard() {
             <TableHead>
               <TableRow>
                 <TableCell sx={{ fontWeight: 600, color: "#374151", backgroundColor: "#f9fafb" }}>Driver</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600, color: "#374151", backgroundColor: "#f9fafb" }}>Buy Qty (KG)</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600, color: "#374151", backgroundColor: "#f9fafb" }}>Buy Amount</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600, color: "#374151", backgroundColor: "#f9fafb" }}>Sell Qty (KG)</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600, color: "#374151", backgroundColor: "#f9fafb" }}>Sell Amount</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600, color: "#374151", backgroundColor: "#f9fafb" }}>Cash Collected</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600, color: "#374151", backgroundColor: "#f9fafb" }}>UPI Collected</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600, color: "#374151", backgroundColor: "#f9fafb" }}>Weight Loss</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, color: "#374151", backgroundColor: "#f9fafb" }}>
+                  Buy Qty (KG)
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, color: "#374151", backgroundColor: "#f9fafb" }}>
+                  Buy Amount
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, color: "#374151", backgroundColor: "#f9fafb" }}>
+                  Sell Qty (KG)
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, color: "#374151", backgroundColor: "#f9fafb" }}>
+                  Sell Amount
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, color: "#374151", backgroundColor: "#f9fafb" }}>
+                  Cash Collected
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, color: "#374151", backgroundColor: "#f9fafb" }}>
+                  UPI Collected
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600, color: "#374151", backgroundColor: "#f9fafb" }}>
+                  Weight Loss
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -406,7 +510,20 @@ export default function Dashboard() {
             justifyContent: "space-between",
             alignItems: "center",
             boxShadow: "0 4px 6px rgba(14, 165, 233, 0.3)",
+            position: "relative",
           }}>
+          {/* <IconButton
+            size="small"
+            onClick={handleOpenCapitalEdit}
+            sx={{
+              position: "absolute",
+              top: 12,
+              right: 12,
+              backgroundColor: "rgba(255, 255, 255, 0.2)",
+              "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.3)" },
+            }}>
+            <EditIcon sx={{ fontSize: 18, color: "#fff" }} />
+          </IconButton> */}
           <div>
             <div style={{ fontSize: "14px", opacity: 0.9, marginBottom: "8px", fontWeight: "500" }}>Total Capital</div>
             <div style={{ fontSize: "36px", fontWeight: "800" }}>
@@ -442,7 +559,20 @@ export default function Dashboard() {
             justifyContent: "space-between",
             alignItems: "center",
             boxShadow: "0 4px 6px rgba(14, 165, 233, 0.3)",
+            position: "relative",
           }}>
+          <IconButton
+            size="small"
+            onClick={handleOpenCapitalEdit}
+            sx={{
+              position: "absolute",
+              top: 12,
+              right: 12,
+              backgroundColor: "rgba(255, 255, 255, 0.2)",
+              "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.3)" },
+            }}>
+            <EditIcon sx={{ fontSize: 18, color: "#fff" }} />
+          </IconButton>
           <div>
             <div style={{ fontSize: "14px", opacity: 0.9, marginBottom: "8px", fontWeight: "500" }}>Total Cash</div>
             <div style={{ fontSize: "36px", fontWeight: "800" }}>₹{Number(totalCapital?.totalCash || 0).toLocaleString()}</div>
@@ -499,7 +629,20 @@ export default function Dashboard() {
               borderRadius: "12px",
               padding: "16px",
               boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+              position: "relative",
             }}>
+            <IconButton
+              size="small"
+              onClick={() => handleOpenBankEdit({ id: b.id, name: b.name, balance: b.balance })}
+              sx={{
+                position: "absolute",
+                top: 8,
+                right: 8,
+                backgroundColor: "rgba(59, 130, 246, 0.1)",
+                "&:hover": { backgroundColor: "rgba(59, 130, 246, 0.2)" },
+              }}>
+              <EditIcon sx={{ fontSize: 16, color: "#3b82f6" }} />
+            </IconButton>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <div style={{ fontSize: "13px", color: "#6b7280", fontWeight: "700" }}>{b.name}</div>
               <span
@@ -582,6 +725,56 @@ export default function Dashboard() {
         </div>
         <div style={{ fontSize: "56px", opacity: 0.3 }}>💳</div>
       </div>
+
+      {/* Edit Bank Balance Modal */}
+      <Dialog open={editBankModalOpen} onClose={() => setEditBankModalOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 600 }}>Edit Bank Balance</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2, color: "#6b7280" }}>
+            Update balance for <strong>{editingBank?.name}</strong>
+          </Typography>
+          <TextField label="New Balance (₹)" type="number" fullWidth value={editBankBalance} onChange={(e) => setEditBankBalance(e.target.value)} sx={{ mt: 1 }} autoFocus />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setEditBankModalOpen(false)} color="inherit">
+            Cancel
+          </Button>
+          <Button onClick={handleUpdateBankBalance} variant="contained" disabled={editBankSubmitting}>
+            {editBankSubmitting ? "Saving..." : "Save"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Total Capital Modal */}
+      <Dialog open={editCapitalModalOpen} onClose={() => setEditCapitalModalOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 600 }}>Adjust Total Cash</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2, color: "#6b7280" }}>
+            Enter the amount to add (positive) or subtract (negative) from Total Cash.
+          </Typography>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Current Total Cash: <strong>₹{Number(totalCapital?.totalCash || 0).toLocaleString()}</strong>
+          </Typography>
+          <TextField
+            label="Adjustment Amount (₹)"
+            type="number"
+            fullWidth
+            value={editCapitalAmount}
+            onChange={(e) => setEditCapitalAmount(e.target.value)}
+            placeholder="e.g., 5000 or -2000"
+            sx={{ mt: 1 }}
+            autoFocus
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setEditCapitalModalOpen(false)} color="inherit">
+            Cancel
+          </Button>
+          <Button onClick={handleUpdateTotalCapital} variant="contained" disabled={editCapitalSubmitting}>
+            {editCapitalSubmitting ? "Saving..." : "Apply"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }

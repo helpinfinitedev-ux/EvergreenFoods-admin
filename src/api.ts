@@ -50,6 +50,7 @@ export const adminAPI = {
   deleteTransaction: (id: string) => api.delete(`/admin/transactions/${id}`),
   createFinancialNote: (data: any) => api.post("/admin/financial/note", data),
   getTotalCapital: () => api.get("/admin/total-capital"),
+  updateTotalCapital: (amount: number) => api.patch("/admin/update-total-capital", { amount }),
   getPaymentsReceived: (id: string, params: { entityType: string; start?: string; end?: string; page?: number }) =>
     api.get(`/admin/payments-received/${id}`, { params }),
 };
