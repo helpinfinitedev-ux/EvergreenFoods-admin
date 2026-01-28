@@ -191,7 +191,7 @@ export default function Bought() {
     if (!editingTransaction) return;
 
     setSaving(true);
-    console.log(editingTransaction);
+    console.log(editingTransaction, entityType);
     try {
       const response = await adminAPI.updateTransaction(editingTransaction.id, {
         amount: editAmount ? Number(editAmount) : undefined,
@@ -201,7 +201,7 @@ export default function Bought() {
         companyId: editingTransaction.companyId,
         customerId: editingTransaction.customerId,
         driverId: editingTransaction.driverId,
-        entityType: editingTransaction.entityType,
+        entityType: entityType,
       });
 
       // Update local state
