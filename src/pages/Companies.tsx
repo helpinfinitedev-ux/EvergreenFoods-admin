@@ -147,6 +147,10 @@ export default function Companies() {
         paid = bill;
         change = -bill;
         bill = 0;
+      } else if (t.type === "ADVANCE_PAYMENT") {
+        change = -bill;
+      } else if (t.type === "RECEIVE_PAYMENT") {
+        change = bill;
       }
 
       const balanceAfter = runningBalance;
