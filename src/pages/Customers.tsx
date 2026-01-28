@@ -83,9 +83,10 @@ export default function Customers() {
     doc.text("Customer " + historyCustomer.name, pageWidth / 2, 20, { align: "center" });
 
     // Simple table headers matching the image format
-    const headers = ["Quantity", "Type", "Rate", "Amt", "Deposit", "Balance"];
+    const headers = ["Date", "Quantity", "Type", "Rate", "Amt", "Deposit", "Balance"];
     const rows = historyRows.map((row) => {
       return [
+        formatDatePdf(row.createdAt || ""),
         row.qtyKg ? Number(row.qtyKg).toFixed(2) : "-",
         row.type,
         row.rate ? Number(row.rate).toFixed(2) : "-",
@@ -125,12 +126,13 @@ export default function Customers() {
       tableLineColor: [0, 0, 0],
       tableLineWidth: 0.5,
       columnStyles: {
-        0: { cellWidth: 16 }, // Quantity
-        1: { cellWidth: 30 }, // Type
-        2: { cellWidth: 24 }, // Rate
-        3: { cellWidth: 28 }, // Amt
-        4: { cellWidth: 28 }, // Deposit
-        5: { cellWidth: 32 }, // Balance
+        0: { cellWidth: 22 }, // Date
+        1: { cellWidth: 16 }, // Quantity
+        2: { cellWidth: 30 }, // Type
+        3: { cellWidth: 24 }, // Rate
+        4: { cellWidth: 28 }, // Amt
+        5: { cellWidth: 28 }, // Deposit
+        6: { cellWidth: 32 }, // Balance
       },
       tableWidth: "auto",
       margin: { left: 14, right: 14 },
@@ -1046,12 +1048,12 @@ export default function Customers() {
                       {historyRows.map((row) => (
                         <tr key={row.id} style={{ borderBottom: "1px solid #000" }}>
                           <td style={simpleTdStyle}>{formatDatePdf(row.createdAt || "")}</td>
-                          <td style={simpleTdStyle}>{row.qtyKg ? Number(row.qtyKg).toFixed(0) : "-"}</td>
+                          <td style={simpleTdStyle}>{row.qtyKg ? Number(row.qtyKg).toFixed(2) : "-"}</td>
                           <td style={simpleTdStyle}>{row.type}</td>
-                          <td style={simpleTdStyle}>{row.rate ? Number(row.rate).toFixed(0) : "-"}</td>
-                          <td style={simpleTdStyle}>{Number(row.bill).toFixed(0)}</td>
-                          <td style={simpleTdStyle}>{Number(row.paid).toFixed(0)}</td>
-                          <td style={simpleTdStyle}>{Number(row.balanceAfter).toFixed(0)}</td>
+                          <td style={simpleTdStyle}>{row.rate ? Number(row.rate).toFixed(2) : "-"}</td>
+                          <td style={simpleTdStyle}>{Number(row.bill).toFixed(2)}</td>
+                          <td style={simpleTdStyle}>{Number(row.paid).toFixed(2)}</td>
+                          <td style={simpleTdStyle}>{Number(row.balanceAfter).toFixed(2)}</td>
                         </tr>
                       ))}
                     </tbody>
