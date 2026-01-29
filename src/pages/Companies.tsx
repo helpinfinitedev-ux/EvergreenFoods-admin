@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { companyAPI } from "../api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { updateRunningBalance } from "../utils/updateRunningBalance";
 
 interface Company {
   id: string;
@@ -131,33 +132,36 @@ export default function Companies() {
     if (!historyCompany) return [];
 
     let runningBalance = Number(historyCompany.amountDue || 0);
+    let prevousDeposit = 0;
 
-    return historyTransactions.map((t) => {
+    return historyTransactions.map((t, i) => {
       let bill = Number(t.totalAmount || 0);
       let paid = Number(t.paymentCash || 0) + Number(t.paymentUpi || 0);
       const rate = Number(t.rate || 0);
 
+      let deposit = 0;
+      let amount = 0;
+
       let change = 0;
+
       if (t.type === "BUY") {
-        change = bill - paid;
-      } else if (t.type === "DEBIT_NOTE") {
-        paid = 0;
-        change = bill;
-      } else if (t.type === "CREDIT_NOTE") {
-        paid = bill;
-        change = -bill;
+        amount = Number(t.totalAmount || 0);
+        runningBalance = updateRunningBalance(runningBalance, i, historyTransactions);
+      }
+      if (t.type === "SELL") {
+        amount = Number(t.totalAmount || 0);
+        deposit = Number(t.totalAmount || 0);
+        runningBalance = updateRunningBalance(runningBalance, i, historyTransactions);
       } else if (t.type === "PAYMENT") {
-        paid = bill;
-        change = -bill;
-        bill = 0;
-      } else if (t.type === "ADVANCE_PAYMENT") {
-        change = -bill;
+        deposit = Number(t.totalAmount || 0);
+        runningBalance = updateRunningBalance(runningBalance, i, historyTransactions);
       } else if (t.type === "RECEIVE_PAYMENT") {
-        change = bill;
+        amount = 0;
+        deposit = Number(t.totalAmount || 0);
+        runningBalance = updateRunningBalance(runningBalance, i, historyTransactions);
       }
 
       const balanceAfter = runningBalance;
-      runningBalance = runningBalance - change;
 
       const typeLabel = t.type === "BUY" ? "BUY" : t.type === "DEBIT_NOTE" ? "DEBIT" : t.type === "CREDIT_NOTE" ? "CREDIT" : t.type === "PAYMENT" ? "PAYMENT" : String(t.type || "-");
 
@@ -174,8 +178,8 @@ export default function Companies() {
         date: t.date,
         createdAt: t.createdAt,
         type: typeLabel,
-        bill,
-        paid,
+        bill: amount,
+        paid: deposit,
         change,
         qtyKg,
         rate,
@@ -184,7 +188,7 @@ export default function Companies() {
     });
   }, [historyCompany, historyTransactions]);
 
-  const historyRows = useMemo(() => {
+  let historyRows = useMemo(() => {
     if (!historyStartDate && !historyEndDate) return historyRowsAll;
 
     const start = historyStartDate ? new Date(historyStartDate + "T00:00:00.000") : null;
@@ -211,7 +215,7 @@ export default function Companies() {
     doc.text("Company " + historyCompany.name, pageWidth / 2, 20, { align: "center" });
 
     // Simple table headers matching the format
-    const headers = ["Date", "Quantity", "Type", "Rate", "Amt", "Deposit", "Balance"];
+    const headers = ["Date", "Quantity", "Type", "Rate", "Amt", "Deposit", "Due (on me)"];
     const rows = historyRows.map((row) => {
       return [
         formatDatePdf(row.date),
@@ -974,7 +978,7 @@ export default function Companies() {
                         <th style={simpleThStyle}>Rate</th>
                         <th style={simpleThStyle}>Amt</th>
                         <th style={simpleThStyle}>Deposit</th>
-                        <th style={simpleThStyle}>Balance</th>
+                        <th style={simpleThStyle}>Due (on me)</th>
                       </tr>
                     </thead>
                     <tbody>

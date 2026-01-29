@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { customerAPI, adminAPI, notificationAPI } from "../api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { updateRunningBalanceForCustomer } from "../utils/updateRunningBalance";
 
 type CustomerTransactionType = "SELL" | "DEBIT_NOTE" | "CREDIT_NOTE";
 
@@ -23,6 +24,9 @@ const formatDatePdf = (dateString: string) =>
     day: "2-digit",
     month: "short",
     year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
   });
 
 export default function Customers() {
@@ -312,18 +316,22 @@ export default function Customers() {
     // API returns newest first (desc). We'll compute "due balance after this txn" using current balance and walking backwards.
     let runningBalance = Number(historyCustomer.balance || 0);
 
-    return historyTransactions.map((t) => {
+    return historyTransactions.map((t, i) => {
       let bill = Number(t.totalAmount || 0);
       let paid = Number(t.paymentCash || 0) + Number(t.paymentUpi || 0);
       const rate = Number(t.rate || 0);
+      let deposit = 0;
+      const amount = 0;
 
       // How this transaction affects customer.balance in backend:
       // SELL: increment by (bill - paid)
       // DEBIT_NOTE: increment by bill
       // CREDIT_NOTE: increment by (-bill)
       let change = 0;
-      if (t.type === "SELL") change = bill - paid;
-      else if (t.type === "DEBIT_NOTE") {
+      if (t.type === "SELL") {
+        deposit = Number(t.paymentCash || 0) + Number(t.paymentUpi || 0);
+        runningBalance = updateRunningBalanceForCustomer(runningBalance, i, historyTransactions);
+      } else if (t.type === "DEBIT_NOTE") {
         paid = 0;
         change = bill;
       } else if (t.type === "CREDIT_NOTE") {
@@ -337,13 +345,14 @@ export default function Customers() {
         change = -bill;
         bill = 0;
       } else if (t.type === "PAYMENT") {
-        paid = bill;
-        change = -bill;
         bill = 0;
+        deposit = Number(t.totalAmount || 0);
+        runningBalance = updateRunningBalanceForCustomer(runningBalance, i, historyTransactions);
+      } else if (t.type === "BUY") {
+        runningBalance = updateRunningBalanceForCustomer(runningBalance, i, historyTransactions);
       }
 
       const balanceAfter = runningBalance;
-      runningBalance = runningBalance - change;
 
       const typeLabel = t.type;
 
@@ -366,7 +375,7 @@ export default function Customers() {
         type: typeLabel,
         info: infoParts.join(" • ") || "-",
         bill,
-        paid,
+        paid: deposit,
         change,
         qtyKg,
         rate,
@@ -1042,7 +1051,7 @@ export default function Customers() {
                         <th style={simpleThStyle}>Rate</th>
                         <th style={simpleThStyle}>Amt</th>
                         <th style={simpleThStyle}>Deposit</th>
-                        <th style={simpleThStyle}>Balance</th>
+                        <th style={simpleThStyle}>Due(on customer)</th>
                       </tr>
                     </thead>
                     <tbody>
