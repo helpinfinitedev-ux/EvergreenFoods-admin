@@ -120,13 +120,13 @@ export default function Customers() {
 
     // Simple table headers matching the image format
     const headers = ["Date", "Quantity", "Type", "Rate", "Amt", "Deposit", "Balance"];
-    const rows = historyRows.map((row) => {
+    const rows = historyRows.map((row: any) => {
       return [
         formatDatePdf(row.createdAt || ""),
         row.qtyKg ? Number(row.qtyKg).toFixed(2) : "-",
         row.type,
         row.rate ? Number(row.rate).toFixed(2) : "-",
-        Number(row.bill || 0).toFixed(2),
+        row?.type !== "SELL" ? Number(row.bill || 0).toFixed(2) : "Cash: " + Number(row.paymentCash || 0) + "\n UPI : " + Number(row.paymentUpi || 0) + "\n Bank : " + row?.bank?.name || "-",
         Number(row.paid || 0).toFixed(2),
         Number(row.balanceAfter || 0).toFixed(2),
       ];
@@ -1115,14 +1115,19 @@ export default function Customers() {
                       </tr>
                     </thead>
                     <tbody>
-                      {historyRows.map((row) => (
+                      {historyRows.map((row: any) => (
                         <tr key={row.id} style={{ borderBottom: "1px solid #000" }}>
                           <td style={simpleTdStyle}>{formatDatePdf(row.createdAt || "")}</td>
                           <td style={simpleTdStyle}>{row.qtyKg ? Number(row.qtyKg).toFixed(2) : "-"}</td>
                           <td style={simpleTdStyle}>{row.type}</td>
                           <td style={simpleTdStyle}>{row.rate ? Number(row.rate).toFixed(2) : "-"}</td>
-                          <td style={simpleTdStyle}>{Number(row.bill).toFixed(2)}</td>
-                          <td style={simpleTdStyle}>{Number(row.paid).toFixed(2)}</td>
+                          <td style={simpleTdStyle}>{Number(row?.bill || 0)}</td>
+                          {row?.type !== "SELL" && <td style={simpleTdStyle}>{Number(row.bill).toFixed(2)}</td>}
+                          {row?.type === "SELL" && (
+                            <td style={simpleTdStyle}>
+                              Cash: {Number(row.paymentCash || 0)} <br></br> UPI : {Number(row.paymentUpi || 0)} <br></br> Bank : {row?.bank?.name || "-"}
+                            </td>
+                          )}
                           <td style={simpleTdStyle}>{Number(row.balanceAfter).toFixed(2)}</td>
                         </tr>
                       ))}
