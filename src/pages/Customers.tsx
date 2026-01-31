@@ -425,6 +425,7 @@ export default function Customers() {
       if (t.details) infoParts.push(t.details.replaceAll("₹", "Rs."));
 
       return {
+        ...t,
         id: t.id,
         createdAt: t.createdAt,
         date: t.date,
