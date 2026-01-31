@@ -71,6 +71,15 @@ export default function Transactions() {
 
   if (loading) return <div style={{ padding: "40px", textAlign: "center" }}>Loading...</div>;
 
+  const getFirstNonZeroString = (...values: any) => {
+    for (const value of values) {
+      if (value !== "0" && value) {
+        return value;
+      }
+    }
+    return "-";
+  };
+
   return (
     <div style={{ padding: "30px" }}>
       <h1 style={{ marginBottom: "30px", fontSize: "28px", fontWeight: "700" }}>Transaction Logs</h1>
@@ -258,11 +267,11 @@ export default function Transactions() {
                   <td style={tdStyle}>{tx.rate ? `₹${Number(tx.rate).toFixed(2)}` : "-"}</td>
                   <td style={tdStyle}>{tx.totalAmount ? `₹${Number(tx.totalAmount).toFixed(2)}` : "-"}</td>
                   <td style={tdStyle}>
-                    {tx?.paymentUpi}
+                    {getFirstNonZeroString(tx?.paymentUpi, tx?.totalAmount)}
                     <br></br>
                     {tx?.bank?.name || "-"}
                   </td>
-                  <td style={tdStyle}>{tx.paymentCash || "-"}</td>
+                  <td style={tdStyle}>{getFirstNonZeroString(tx.paymentCash, tx?.totalAmount) || "-"}</td>
                 </tr>
               ))
             )}
