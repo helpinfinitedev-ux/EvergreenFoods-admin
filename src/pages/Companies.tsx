@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { companyAPI } from "../api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { updateRunningBalance } from "../utils/updateRunningBalance";
+import { updateRunningBalance, updateRunningBalanceBasedOnPreviousTransaction } from "../utils/updateRunningBalance";
 import { EVERGREEN_PHONE, EVERGREEN_NAME } from "../constants";
 
 interface Company {
@@ -127,7 +127,7 @@ export default function Companies() {
     setHistoryStartDate("");
     setHistoryEndDate("");
   };
-
+  let openingBalance = 0;
   // Process history rows for display
   const historyRowsAll = useMemo(() => {
     if (!historyCompany) return [];
@@ -174,6 +174,8 @@ export default function Companies() {
         if (qty > 0) qtyKg = qty;
       }
 
+      openingBalance = updateRunningBalanceBasedOnPreviousTransaction(runningBalance, i + 1, historyTransactions);
+
       return {
         id: t.id,
         date: t.date,
@@ -189,6 +191,8 @@ export default function Companies() {
     });
   }, [historyCompany, historyTransactions]);
 
+  openingBalance = updateRunningBalanceBasedOnPreviousTransaction(historyRowsAll?.[historyRowsAll?.length - 1]?.balanceAfter, historyRowsAll?.length, historyTransactions);
+
   let historyRows = useMemo(() => {
     if (!historyStartDate && !historyEndDate) return historyRowsAll;
 
@@ -196,7 +200,7 @@ export default function Companies() {
     const end = historyEndDate ? new Date(historyEndDate + "T23:59:59.999") : null;
 
     return historyRowsAll.filter((row) => {
-      const d = new Date(row.createdAt);
+      const d = new Date(row.createdAt?.toString() as string);
       if (start && d < start) return false;
       if (end && d > end) return false;
       return true;
@@ -927,7 +931,8 @@ export default function Companies() {
                 <h2 style={{ margin: 0, fontSize: "20px", fontWeight: "700", color: "#000" }}>Company {historyCompany.name}</h2>
                 <div style={{ marginTop: "8px", fontSize: "13px", color: "#333" }}>
                   {historyCompany.mobile && <>Mobile: {historyCompany.mobile} • </>}
-                  Current Balance: <span style={{ fontWeight: "700" }}>{Number(historyCompany.amountDue || 0).toFixed(0)}</span>
+                  Current Balance: <span style={{ fontWeight: "700" }}>{Number(historyCompany.amountDue || 0).toFixed(0)}</span> • <></> Opening Balance:{" "}
+                  <span style={{ fontWeight: "700" }}>{Number(openingBalance || 0).toFixed(0)}</span>
                 </div>
                 {/* Date Filters */}
                 <div style={{ display: "flex", gap: "10px", marginTop: "12px", alignItems: "center", flexWrap: "wrap" }}>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { customerAPI, adminAPI, notificationAPI } from "../api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { updateRunningBalanceForCustomer } from "../utils/updateRunningBalance";
+import { updateRunningBalanceForBuyForCustomer, updateRunningBalanceForCustomer } from "../utils/updateRunningBalance";
 import { EVERGREEN_PHONE, EVERGREEN_NAME } from "../constants";
 
 type CustomerTransactionType = "SELL" | "DEBIT_NOTE" | "CREDIT_NOTE";
@@ -439,6 +439,8 @@ export default function Customers() {
       };
     });
   }, [historyCustomer, historyTransactions]);
+
+  const openingBalance = updateRunningBalanceForBuyForCustomer(historyRowsAll?.[historyRowsAll?.length - 1]?.balanceAfter, historyRowsAll?.length, historyTransactions);
 
   const historyRows = useMemo(() => {
     if (!historyStartDate && !historyEndDate) return historyRowsAll;
@@ -996,7 +998,8 @@ export default function Customers() {
               <div>
                 <h2 style={{ margin: 0, fontSize: "20px", fontWeight: "700", color: "#000" }}>Customer {historyCustomer.name}</h2>
                 <div style={{ marginTop: "8px", fontSize: "13px", color: "#333" }}>
-                  Mobile: {historyCustomer.mobile} • Current Balance: <span style={{ fontWeight: "700" }}>{Number(historyCustomer.balance || 0).toFixed(0)}</span>
+                  Mobile: {historyCustomer.mobile} • Current Balance: <span style={{ fontWeight: "700" }}>{Number(historyCustomer.balance || 0).toFixed(0)}</span>• Opening Balance:{" "}
+                  <span style={{ fontWeight: "700" }}>{Number(openingBalance || 0).toFixed(0)}</span>
                 </div>
                 {/* Date Filters */}
                 <div style={{ display: "flex", gap: "10px", marginTop: "12px", alignItems: "center", flexWrap: "wrap" }}>

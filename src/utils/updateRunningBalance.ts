@@ -1,4 +1,4 @@
-const updateRunningBalanceBasedOnPreviousTransaction = (runningBalance: number, i: number, historyTransactions: any[]) => {
+export const updateRunningBalanceBasedOnPreviousTransaction = (runningBalance: number, i: number, historyTransactions: any[]) => {
   const previousTxn = historyTransactions[i - 1];
   if (previousTxn?.type === "BUY") {
     return runningBalance - Number(previousTxn.totalAmount || 0);
@@ -41,11 +41,7 @@ export const getPreviousDepositBasedOnTypeForCustomer = (transaction: any) => {
   return 0;
 };
 
-const updateRunningBalanceForBuyForCustomer = (runningBalance: number, i: number, historyTransactions: any[]) => {
-  const txn = historyTransactions[i];
-  const type = txn.type;
-  const amount = Number(txn.totalAmount || 0);
-  const deposit = Number(txn.paymentCash || 0) + Number(txn.paymentUpi || 0);
+export const updateRunningBalanceForBuyForCustomer = (runningBalance: number, i: number, historyTransactions: any[]) => {
   const previousTxn = historyTransactions[i - 1];
   if (previousTxn?.type === "BUY") {
     return runningBalance + Number(previousTxn.totalAmount || 0);
