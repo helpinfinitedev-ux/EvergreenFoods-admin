@@ -72,6 +72,8 @@ export default function Expenses() {
   const [editDate, setEditDate] = useState(new Date().toISOString().split("T")[0]);
   const [editBankId, setEditBankId] = useState("");
   const [editDriver, setEditDriver] = useState<Driver | null>(null);
+  const [filterDriverId, setFilterDriverId] = useState("");
+  const [filteredCateogry, setFilteredCateogry] = useState("");
 
   useEffect(() => {
     loadData();
@@ -126,7 +128,8 @@ export default function Expenses() {
       if (filterType) params.type = filterType;
       if (filterDates.startDate) params.startDate = filterDates.startDate;
       if (filterDates.endDate) params.endDate = filterDates.endDate;
-
+      if (filterDriverId) params.driverId = filterDriverId;
+      if (filteredCateogry) params.category = filteredCateogry;
       const [expensesRes, summaryRes] = await Promise.all([expenseAPI.getAll(params), expenseAPI.getSummary(params)]);
 
       setExpenses(expensesRes.data);
@@ -455,6 +458,28 @@ export default function Expenses() {
               <option value="">All Types</option>
               <option value="CASH">Cash</option>
               <option value="BANK">Bank</option>
+            </select>
+          </div>
+          <div style={{ minWidth: "150px" }}>
+            <label style={{ display: "block", marginBottom: "8px", fontWeight: "700", fontSize: "13px", color: "#374151" }}>Category</label>
+            <select value={filteredCateogry} onChange={(e) => setFilteredCateogry(e.target.value)} style={filterInputStyle}>
+              <option value="">All Categories</option>
+              {categories.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div style={{ minWidth: "150px" }}>
+            <label style={{ display: "block", marginBottom: "8px", fontWeight: "700", fontSize: "13px", color: "#374151" }}>Driver</label>
+            <select value={filterDriverId} onChange={(e) => setFilterDriverId(e.target.value)} style={filterInputStyle}>
+              <option value="">All Drivers</option>
+              {drivers.map((driver) => (
+                <option key={driver.id} value={driver.id}>
+                  {driver.name}
+                </option>
+              ))}
             </select>
           </div>
           <button onClick={handleFilter} style={applyBtnStyle}>
