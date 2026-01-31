@@ -79,17 +79,7 @@ export const updateRunningBalanceForCustomer = (runningBalance: number, i: numbe
   const deposit = Number(txn.paymentCash || 0) + Number(txn.paymentUpi || 0);
   const previousDeposit = getPreviousDepositBasedOnTypeForCustomer(historyTransactions[i - 1]);
 
-  if (type === "PAYMENT") {
-    return updateRunningBalanceForBuyForCustomer(runningBalance, i, historyTransactions);
-  }
-  if (type === "BUY") {
-    return updateRunningBalanceForBuyForCustomer(runningBalance, i, historyTransactions);
-  }
-  if (type === "SELL") {
-    return updateRunningBalanceForBuyForCustomer(runningBalance, i, historyTransactions);
-  }
-  if (type === "RECEIVE_PAYMENT") {
-    return updateRunningBalanceForBuyForCustomer(runningBalance, i, historyTransactions);
-  }
+  return updateRunningBalanceForBuyForCustomer(runningBalance, i, historyTransactions);
+
   return runningBalance;
 };
