@@ -68,6 +68,7 @@ const updateRunningBalanceForBuyForCustomer = (runningBalance: number, i: number
   if (previousTxn?.type === "DEBIT_NOTE") {
     return runningBalance - Number(previousTxn?.totalAmount || 0);
   }
+  return runningBalance;
 };
 
 export const updateRunningBalanceForCustomer = (runningBalance: number, i: number, historyTransactions: any[]) => {
@@ -80,6 +81,4 @@ export const updateRunningBalanceForCustomer = (runningBalance: number, i: numbe
   const previousDeposit = getPreviousDepositBasedOnTypeForCustomer(historyTransactions[i - 1]);
 
   return updateRunningBalanceForBuyForCustomer(runningBalance, i, historyTransactions);
-
-  return runningBalance;
 };

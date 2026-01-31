@@ -110,7 +110,7 @@ export default function Customers() {
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
     doc.text("Customer: " + historyCustomer.name, 14, 28);
-    
+
     // Customer phone if available
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
@@ -386,7 +386,6 @@ export default function Customers() {
       let change = 0;
       if (t.type === "SELL") {
         deposit = Number(t.paymentCash || 0) + Number(t.paymentUpi || 0);
-        runningBalance = updateRunningBalanceForCustomer(runningBalance, i, historyTransactions);
       } else if (t.type === "DEBIT_NOTE") {
         paid = 0;
         change = bill;
@@ -404,10 +403,10 @@ export default function Customers() {
       } else if (t.type === "PAYMENT") {
         bill = 0;
         deposit = Number(t.totalAmount || 0);
-        runningBalance = updateRunningBalanceForCustomer(runningBalance, i, historyTransactions);
       } else if (t.type === "BUY") {
-        runningBalance = updateRunningBalanceForCustomer(runningBalance, i, historyTransactions);
       }
+
+      runningBalance = updateRunningBalanceForCustomer(runningBalance, i, historyTransactions);
 
       const balanceAfter = runningBalance;
 
