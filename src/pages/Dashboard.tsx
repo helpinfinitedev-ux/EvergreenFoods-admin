@@ -532,10 +532,11 @@ export default function Dashboard() {
                 Number(totalCapital?.totalCash || 0) +
                 Number(stats?.totalBankBalance || 0) +
                 Number(stats?.totalInMarket || 0) +
-                Number(stats?.totalCompanyDue > 0 ? 0 : Math.abs(stats?.totalCompanyDue || 0))
+                Number(stats?.totalCompanyDue > 0 ? 0 : Math.abs(stats?.totalCompanyDue || 0)) -
+                Number(stats?.totalCompanyDue || 0)
               ).toLocaleString()}
             </div>
-            <div style={{ fontSize: "13px", opacity: 0.8, marginTop: "8px" }}>Cash + Bank + Market + Advance</div>
+            <div style={{ fontSize: "13px", opacity: 0.8, marginTop: "8px" }}>Cash + Bank + Market + Advance - Due(On Company)</div>
           </div>
           <div style={{ fontSize: "56px", opacity: 0.3 }}>💼</div>
         </div>
