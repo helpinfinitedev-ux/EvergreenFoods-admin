@@ -586,6 +586,8 @@ export default function Expenses() {
               borderRadius: "12px",
               width: "100%",
               maxWidth: "500px",
+              height: "80vh",
+              overflow: "scroll",
             }}>
             <h2 style={{ marginBottom: "24px", fontSize: "20px", fontWeight: "700" }}>Edit Expense</h2>
 
@@ -768,6 +770,8 @@ export default function Expenses() {
               borderRadius: "12px",
               width: "100%",
               maxWidth: "500px",
+              height: "80vh",
+              overflow: "scroll",
             }}>
             <h2 style={{ marginBottom: "24px", fontSize: "20px", fontWeight: "700" }}>Add New Expense</h2>
 
