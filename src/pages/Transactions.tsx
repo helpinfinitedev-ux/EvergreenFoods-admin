@@ -271,7 +271,7 @@ export default function Transactions() {
                     <br></br>
                     {tx?.bank?.name || "-"}
                   </td>
-                  <td style={tdStyle}>{getFirstNonZeroString(tx.paymentCash, tx?.totalAmount) || "-"}</td>
+                  <td style={tdStyle}>{getFirstNonZeroString(tx.paymentCash, tx?.bank?.name ? "" : tx?.totalAmount) || "-"}</td>
                 </tr>
               ))
             )}
