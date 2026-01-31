@@ -210,11 +210,13 @@ export default function Transactions() {
               <th style={thStyle}>Date</th>
               <th style={thStyle}>Type</th>
               <th style={thStyle}>Driver</th>
+              <th style={thStyle}>Company</th>
+              <th style={thStyle}>Customer</th>
               <th style={thStyle}>Amount</th>
-              <th style={thStyle}>Unit</th>
               <th style={thStyle}>Rate</th>
               <th style={thStyle}>Total</th>
-              <th style={thStyle}>Details</th>
+              <th style={thStyle}>Bank</th>
+              <th style={thStyle}>Cash</th>
             </tr>
           </thead>
           <tbody>
@@ -250,11 +252,17 @@ export default function Transactions() {
                     </span>
                   </td>
                   <td style={tdStyle}>{tx.driver?.name || "-"}</td>
-                  <td style={tdStyle}>{Number(tx.amount).toFixed(2)}</td>
-                  <td style={tdStyle}>{tx.unit}</td>
+                  <td style={tdStyle}>{tx?.company?.name}</td>
+                  <td style={tdStyle}>{tx?.customer?.name}</td>
+                  <td style={tdStyle}>{tx.amount}kg</td>
                   <td style={tdStyle}>{tx.rate ? `₹${Number(tx.rate).toFixed(2)}` : "-"}</td>
                   <td style={tdStyle}>{tx.totalAmount ? `₹${Number(tx.totalAmount).toFixed(2)}` : "-"}</td>
-                  <td style={tdStyle}>{tx.details || "-"}</td>
+                  <td style={tdStyle}>
+                    {tx?.paymentUpi}
+                    <br></br>
+                    {tx?.bank?.name || "-"}
+                  </td>
+                  <td style={tdStyle}>{tx.paymentCash || "-"}</td>
                 </tr>
               ))
             )}
