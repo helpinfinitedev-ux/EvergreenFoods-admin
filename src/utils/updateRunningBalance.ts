@@ -59,71 +59,17 @@ const updateRunningBalanceForBuyForCustomer = (runningBalance: number, i: number
   if (previousTxn?.type === "RECEIVE_PAYMENT") {
     return runningBalance + Number(previousTxn?.totalAmount || 0);
   }
-};
-const updateRunningBalanceForSellForCustomer = (runningBalance: number, i: number, historyTransactions: any[]) => {
-  if (i === 0) return runningBalance;
-
-  const txn = historyTransactions[i];
-  const type = txn.type;
-  const amount = Number(txn.totalAmount || 0);
-  const deposit = Number(txn.paymentCash || 0) + Number(txn.paymentUpi || 0);
-  const previousTxn = historyTransactions[i - 1];
-  if (previousTxn?.type === "BUY") {
-    return runningBalance + Number(previousTxn.totalAmount || 0);
-  }
-  if (previousTxn?.type === "PAYMENT") {
-    return runningBalance - Number(previousTxn?.totalAmount || 0);
-  }
-  if (previousTxn?.type === "SELL") {
-    return runningBalance + Number(previousTxn?.totalAmount || 0) - Number(previousTxn?.paymentCash || 0) - Number(previousTxn?.paymentUpi || 0);
-  }
-  if (previousTxn?.type === "RECEIVE_PAYMENT") {
+  if (previousTxn?.type === "ADVANCE_PAYMENT") {
     return runningBalance + Number(previousTxn?.totalAmount || 0);
   }
-};
-const updateRunningBalanceForPaymentForCustomer = (runningBalance: number, i: number, historyTransactions: any[]) => {
-  if (i === 0) return runningBalance;
-
-  const txn = historyTransactions[i];
-  const type = txn.type;
-  const amount = Number(txn.totalAmount || 0);
-  const deposit = Number(txn.paymentCash || 0) + Number(txn.paymentUpi || 0);
-  const previousTxn = historyTransactions[i - 1];
-  if (previousTxn?.type === "BUY") {
-    return runningBalance + Number(previousTxn.totalAmount || 0);
-  }
-  if (previousTxn?.type === "PAYMENT") {
-    return runningBalance - Number(previousTxn?.totalAmount || 0);
-  }
-  if (previousTxn?.type === "SELL") {
-    return runningBalance + Number(previousTxn?.totalAmount || 0) - Number(previousTxn?.paymentCash || 0) - Number(previousTxn?.paymentUpi || 0);
-  }
-  if (previousTxn?.type === "RECEIVE_PAYMENT") {
+  if (previousTxn?.type === "CREDIT_NOTE") {
     return runningBalance + Number(previousTxn?.totalAmount || 0);
   }
-  return runningBalance;
-};
-const updateRunningBalanceForReceivePaymentForCustomer = (runningBalance: number, i: number, historyTransactions: any[]) => {
-  if (i === 0) return runningBalance;
-
-  const txn = historyTransactions[i];
-  const type = txn.type;
-  const amount = Number(txn.totalAmount || 0);
-  const deposit = Number(txn.paymentCash || 0) + Number(txn.paymentUpi || 0);
-  const previousTxn = historyTransactions[i - 1];
-  if (previousTxn?.type === "BUY") {
-    return runningBalance + Number(previousTxn.totalAmount || 0);
-  }
-  if (previousTxn?.type === "PAYMENT") {
+  if (previousTxn?.type === "DEBIT_NOTE") {
     return runningBalance - Number(previousTxn?.totalAmount || 0);
   }
-  if (previousTxn?.type === "SELL") {
-    return runningBalance + Number(previousTxn?.totalAmount || 0) - Number(previousTxn?.paymentCash || 0) - Number(previousTxn?.paymentUpi || 0);
-  }
-  if (previousTxn?.type === "RECEIVE_PAYMENT") {
-    return runningBalance + Number(previousTxn?.totalAmount || 0);
-  }
 };
+
 export const updateRunningBalanceForCustomer = (runningBalance: number, i: number, historyTransactions: any[]) => {
   if (i === 0) return runningBalance;
 
@@ -134,16 +80,16 @@ export const updateRunningBalanceForCustomer = (runningBalance: number, i: numbe
   const previousDeposit = getPreviousDepositBasedOnTypeForCustomer(historyTransactions[i - 1]);
 
   if (type === "PAYMENT") {
-    return updateRunningBalanceForPaymentForCustomer(runningBalance, i, historyTransactions);
+    return updateRunningBalanceForBuyForCustomer(runningBalance, i, historyTransactions);
   }
   if (type === "BUY") {
     return updateRunningBalanceForBuyForCustomer(runningBalance, i, historyTransactions);
   }
   if (type === "SELL") {
-    return updateRunningBalanceForSellForCustomer(runningBalance, i, historyTransactions);
+    return updateRunningBalanceForBuyForCustomer(runningBalance, i, historyTransactions);
   }
   if (type === "RECEIVE_PAYMENT") {
-    return updateRunningBalanceForReceivePaymentForCustomer(runningBalance, i, historyTransactions);
+    return updateRunningBalanceForBuyForCustomer(runningBalance, i, historyTransactions);
   }
   return runningBalance;
 };
