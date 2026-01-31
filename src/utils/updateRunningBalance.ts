@@ -54,7 +54,7 @@ const updateRunningBalanceForBuyForCustomer = (runningBalance: number, i: number
     return runningBalance - Number(previousTxn?.totalAmount || 0);
   }
   if (previousTxn?.type === "SELL") {
-    return runningBalance + Number(previousTxn?.totalAmount || 0) - Number(previousTxn?.paymentCash || 0) - Number(previousTxn?.paymentUpi || 0);
+    return runningBalance - Number(previousTxn?.totalAmount || 0) + Number(previousTxn?.paymentCash || 0) + Number(previousTxn?.paymentUpi || 0);
   }
   if (previousTxn?.type === "RECEIVE_PAYMENT") {
     return runningBalance + Number(previousTxn?.totalAmount || 0);
