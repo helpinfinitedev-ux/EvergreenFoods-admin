@@ -3,6 +3,7 @@ import { companyAPI } from "../api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { updateRunningBalance } from "../utils/updateRunningBalance";
+import { EVERGREEN_PHONE, EVERGREEN_NAME } from "../constants";
 
 interface Company {
   id: string;
@@ -150,7 +151,7 @@ export default function Companies() {
       }
       if (t.type === "SELL") {
         amount = Number(t.totalAmount || 0);
-        deposit = Number(t.totalAmount || 0);
+        deposit = Number(t.paymentCash || 0) + Number(t.paymentUpi || 0);
         runningBalance = updateRunningBalance(runningBalance, i, historyTransactions);
       } else if (t.type === "PAYMENT") {
         deposit = Number(t.totalAmount || 0);
@@ -202,23 +203,54 @@ export default function Companies() {
     });
   }, [historyRowsAll, historyStartDate, historyEndDate]);
 
-  const generateCompanyHistoryPdf = () => {
+  const generateCompanyHistoryPdf = async () => {
     if (!historyCompany || historyRows.length === 0) return;
 
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
 
-    // Header - Plain black text
-    doc.setFontSize(16);
+    // Load and add logo
+    try {
+      const logoImg = new Image();
+      logoImg.crossOrigin = "anonymous";
+      await new Promise<void>((resolve, reject) => {
+        logoImg.onload = () => resolve();
+        logoImg.onerror = reject;
+        logoImg.src = "/icon.png";
+      });
+      doc.addImage(logoImg, "PNG", 14, 8, 12, 12);
+    } catch (e) {
+      console.warn("Could not load logo for PDF");
+    }
+
+    // Header - Left side: Evergreen Foods
+    doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(0, 0, 0);
-    doc.text("Company " + historyCompany.name, pageWidth / 2, 20, { align: "center" });
+    doc.text(EVERGREEN_NAME, 28, 16);
+
+    // Header - Right side: Evergreen Foods phone
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("Ph: " + EVERGREEN_PHONE, pageWidth - 14, 12, { align: "right" });
+
+    // Company info
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Company: " + historyCompany.name, 14, 28);
+
+    // Company phone if available
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    if (historyCompany.mobile) {
+      doc.text("Mobile: " + historyCompany.mobile, 14, 34);
+    }
 
     // Simple table headers matching the format
     const headers = ["Date", "Quantity", "Type", "Rate", "Amt", "Deposit", "Due (on me)"];
     const rows = historyRows.map((row) => {
       return [
-        formatDatePdf(row.date),
+        formatDatePdf(row.createdAt || ""),
         row.qtyKg ? Number(row.qtyKg).toFixed(2) : "-",
         row.type,
         row.rate ? Number(row.rate).toFixed(2) : "-",
@@ -228,13 +260,15 @@ export default function Companies() {
       ];
     });
 
+    const tableStartY = historyCompany.mobile ? 40 : 34;
+
     autoTable(doc, {
       head: [headers],
       body: rows,
-      startY: 30,
+      startY: tableStartY,
       styles: {
-        fontSize: 10,
-        cellPadding: 4,
+        fontSize: 8,
+        cellPadding: 2,
         overflow: "linebreak",
         valign: "middle",
         halign: "center",
@@ -258,13 +292,13 @@ export default function Companies() {
       tableLineColor: [0, 0, 0],
       tableLineWidth: 0.5,
       columnStyles: {
-        0: { cellWidth: 22 },
-        1: { cellWidth: 28 },
-        2: { cellWidth: 24 },
-        3: { cellWidth: 24 },
-        4: { cellWidth: 28 },
-        5: { cellWidth: 28 },
-        6: { cellWidth: 32 },
+        0: { cellWidth: 22 }, // Date
+        1: { cellWidth: 16 }, // Quantity
+        2: { cellWidth: 30 }, // Type
+        3: { cellWidth: 24 }, // Rate
+        4: { cellWidth: 28 }, // Amt
+        5: { cellWidth: 28 }, // Deposit
+        6: { cellWidth: 32 }, // Balance
       },
       tableWidth: "auto",
       margin: { left: 14, right: 14 },
@@ -293,30 +327,55 @@ export default function Companies() {
       day: "2-digit",
       month: "short",
       year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
     });
 
-  const downloadPdf = () => {
+  const downloadPdf = async () => {
     if (downloadingPdf || companies.length === 0) return;
     setDownloadingPdf(true);
     try {
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
 
-      doc.setFontSize(18);
-      doc.setFont("helvetica", "bold");
-      doc.text("Evergreen Foods", pageWidth / 2, 18, { align: "center" });
+      // Load and add logo
+      try {
+        const logoImg = new Image();
+        logoImg.crossOrigin = "anonymous";
+        await new Promise<void>((resolve, reject) => {
+          logoImg.onload = () => resolve();
+          logoImg.onerror = reject;
+          logoImg.src = "/icon.png";
+        });
+        doc.addImage(logoImg, "PNG", 14, 8, 12, 12);
+      } catch (e) {
+        console.warn("Could not load logo for PDF");
+      }
 
+      // Header - Left side: Evergreen Foods
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(0, 0, 0);
+      doc.text(EVERGREEN_NAME, 28, 16);
+
+      // Header - Right side: Evergreen Foods phone
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text("Ph: " + EVERGREEN_PHONE, pageWidth - 14, 12, { align: "right" });
+
+      // Subtitle
       doc.setFontSize(12);
       doc.setFont("helvetica", "normal");
-      doc.text("My Companies", pageWidth / 2, 26, { align: "center" });
+      doc.text("My Companies", 14, 26);
 
-      const headers = ["Company Name", "Amount Due", "Created On"];
-      const rows = companies.map((c) => [c.name || "-", formatMoneyPdf(Number(c.amountDue || 0)), formatDatePdf(c.createdAt)]);
+      const headers = ["Company Name", "Mobile", "Amount Due", "Created On"];
+      const rows = companies.map((c) => [c.name || "-", c.mobile || "-", formatMoneyPdf(Number(c.amountDue || 0)), formatDatePdf(c.createdAt)]);
 
       autoTable(doc, {
         head: [headers],
         body: rows,
-        startY: 36,
+        startY: 32,
         styles: {
           fontSize: 8.5,
           cellPadding: 2.5,
@@ -335,6 +394,7 @@ export default function Companies() {
           0: { cellWidth: "auto" },
           1: { cellWidth: 28 },
           2: { cellWidth: 28 },
+          3: { cellWidth: 28 },
         },
         tableWidth: "auto",
         margin: { left: 14, right: 14 },

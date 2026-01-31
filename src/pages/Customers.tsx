@@ -3,6 +3,7 @@ import { customerAPI, adminAPI, notificationAPI } from "../api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { updateRunningBalanceForCustomer } from "../utils/updateRunningBalance";
+import { EVERGREEN_PHONE, EVERGREEN_NAME } from "../constants";
 
 type CustomerTransactionType = "SELL" | "DEBIT_NOTE" | "CREDIT_NOTE";
 
@@ -74,17 +75,48 @@ export default function Customers() {
     return "Rs." + intWithCommas + "." + decPart;
   };
 
-  const generateCustomerHistoryPdf = () => {
+  const generateCustomerHistoryPdf = async () => {
     if (!historyCustomer || historyRows.length === 0) return;
 
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
 
-    // Header - Plain black text
-    doc.setFontSize(13);
+    // Load and add logo
+    try {
+      const logoImg = new Image();
+      logoImg.crossOrigin = "anonymous";
+      await new Promise<void>((resolve, reject) => {
+        logoImg.onload = () => resolve();
+        logoImg.onerror = reject;
+        logoImg.src = "/icon.png";
+      });
+      doc.addImage(logoImg, "PNG", 14, 8, 12, 12);
+    } catch (e) {
+      console.warn("Could not load logo for PDF");
+    }
+
+    // Header - Left side: Evergreen Foods
+    doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(0, 0, 0);
-    doc.text("Customer " + historyCustomer.name, pageWidth / 2, 20, { align: "center" });
+    doc.text(EVERGREEN_NAME, 28, 16);
+
+    // Header - Right side: Evergreen Foods phone
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("Ph: " + EVERGREEN_PHONE, pageWidth - 14, 12, { align: "right" });
+
+    // Customer info
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Customer: " + historyCustomer.name, 14, 28);
+    
+    // Customer phone if available
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    if (historyCustomer.mobile) {
+      doc.text("Mobile: " + historyCustomer.mobile, 14, 34);
+    }
 
     // Simple table headers matching the image format
     const headers = ["Date", "Quantity", "Type", "Rate", "Amt", "Deposit", "Balance"];
@@ -100,10 +132,12 @@ export default function Customers() {
       ];
     });
 
+    const tableStartY = historyCustomer.mobile ? 40 : 34;
+
     autoTable(doc, {
       head: [headers],
       body: rows,
-      startY: 30,
+      startY: tableStartY,
       styles: {
         fontSize: 8,
         cellPadding: 2,
@@ -146,18 +180,40 @@ export default function Customers() {
     doc.save(fileName);
   };
 
-  const generateCustomersPdf = () => {
+  const generateCustomersPdf = async () => {
     if (customers.length === 0) return;
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
 
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text("Evergreen Foods", pageWidth / 2, 18, { align: "center" });
+    // Load and add logo
+    try {
+      const logoImg = new Image();
+      logoImg.crossOrigin = "anonymous";
+      await new Promise<void>((resolve, reject) => {
+        logoImg.onload = () => resolve();
+        logoImg.onerror = reject;
+        logoImg.src = "/icon.png";
+      });
+      doc.addImage(logoImg, "PNG", 14, 8, 12, 12);
+    } catch (e) {
+      console.warn("Could not load logo for PDF");
+    }
 
+    // Header - Left side: Evergreen Foods
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0, 0, 0);
+    doc.text(EVERGREEN_NAME, 28, 16);
+
+    // Header - Right side: Evergreen Foods phone
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("Ph: " + EVERGREEN_PHONE, pageWidth - 14, 12, { align: "right" });
+
+    // Subtitle
     doc.setFontSize(12);
     doc.setFont("helvetica", "normal");
-    doc.text("Customers Report", pageWidth / 2, 26, { align: "center" });
+    doc.text("Customers Report", 14, 26);
 
     const headers = ["Name", "Mobile", "Address", "Balance"];
     const rows = customers.map((c) => [c.name || "-", c.mobile || "-", c.address || "-", formatMoneyForPdf(Number(c.balance || 0))]);
@@ -165,7 +221,7 @@ export default function Customers() {
     autoTable(doc, {
       head: [headers],
       body: rows,
-      startY: 36,
+      startY: 32,
       styles: {
         fontSize: 8.5,
         cellPadding: 2.5,
@@ -341,6 +397,7 @@ export default function Customers() {
         paid = 0;
         change = -bill;
       } else if (t.type === "RECEIVE_PAYMENT") {
+        deposit = bill;
         paid = bill;
         change = -bill;
         bill = 0;
