@@ -126,7 +126,9 @@ export default function Customers() {
         row.qtyKg ? Number(row.qtyKg).toFixed(2) : "-",
         row.type,
         row.rate ? Number(row.rate).toFixed(2) : "-",
-        row?.type !== "SELL" ? Number(row.bill || 0).toFixed(2) : "Cash: " + Number(row.paymentCash || 0) + "\n UPI : " + Number(row.paymentUpi || 0) + "\n Bank : " + row?.bank?.name || "-",
+        row?.type !== "SELL"
+          ? Number(row.bill || 0).toFixed(2) + "\n" + (row?.bank?.name || "-")
+          : "Cash: " + Number(row.paymentCash || 0) + "\n UPI : " + Number(row.paymentUpi || 0) + "\n Bank : " + row?.bank?.name || "-",
         Number(row.paid || 0).toFixed(2),
         Number(row.balanceAfter || 0).toFixed(2),
         row?.driver?.name || "-",
@@ -1127,7 +1129,8 @@ export default function Customers() {
                           <td style={simpleTdStyle}>{Number(row?.bill || 0)}</td>
                           {row?.type !== "SELL" && (
                             <td style={simpleTdStyle}>
-                              {Number(row.paid).toFixed(2)} {row?.bank?.name || "-"}
+                              {Number(row.paid).toFixed(2)}
+                              <br></br> {row?.bank?.name || "-"}
                             </td>
                           )}
                           {row?.type === "SELL" && (
