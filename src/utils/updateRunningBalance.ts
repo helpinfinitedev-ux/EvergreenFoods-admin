@@ -1,7 +1,7 @@
 const updateRunningBalanceBasedOnPreviousTransaction = (runningBalance: number, i: number, historyTransactions: any[]) => {
   const previousTxn = historyTransactions[i - 1];
   if (previousTxn?.type === "BUY") {
-    return runningBalance + Number(previousTxn.totalAmount || 0);
+    return runningBalance - Number(previousTxn.totalAmount || 0);
   }
   if (previousTxn?.type === "PAYMENT") {
     return runningBalance + Number(previousTxn?.totalAmount || 0);
