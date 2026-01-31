@@ -267,7 +267,7 @@ export default function Transactions() {
                   <td style={tdStyle}>{tx.rate ? `₹${Number(tx.rate).toFixed(2)}` : "-"}</td>
                   <td style={tdStyle}>{tx.totalAmount ? `₹${Number(tx.totalAmount).toFixed(2)}` : "-"}</td>
                   <td style={tdStyle}>
-                    {getFirstNonZeroString(tx?.paymentUpi, tx?.totalAmount)}
+                    {getFirstNonZeroString(tx?.paymentUpi, tx?.bank?.name ? tx?.totalAmount : "")}
                     <br></br>
                     {tx?.bank?.name || "-"}
                   </td>
