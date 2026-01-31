@@ -177,6 +177,7 @@ export default function Companies() {
       openingBalance = updateRunningBalanceBasedOnPreviousTransaction(runningBalance, i + 1, historyTransactions);
 
       return {
+        ...t,
         id: t.id,
         date: t.date,
         createdAt: t.createdAt,
@@ -251,8 +252,8 @@ export default function Companies() {
     }
 
     // Simple table headers matching the format
-    const headers = ["Date", "Quantity", "Type", "Rate", "Amt", "Deposit", "Due (on me)"];
-    const rows = historyRows.map((row) => {
+    const headers = ["Date", "Quantity", "Type", "Rate", "Amt", "Deposit", "Due (on me)", "Driver"];
+    const rows = historyRows.map((row: any) => {
       return [
         formatDatePdf(row.createdAt || ""),
         row.qtyKg ? Number(row.qtyKg).toFixed(2) : "-",
@@ -261,6 +262,7 @@ export default function Companies() {
         Number(row.bill || 0).toFixed(2),
         Number(row.paid || 0).toFixed(2),
         Number(row.balanceAfter || 0).toFixed(2),
+        row?.driver?.name || "-",
       ];
     });
 
@@ -293,19 +295,20 @@ export default function Companies() {
       alternateRowStyles: {
         fillColor: [255, 255, 255],
       },
-      tableLineColor: [0, 0, 0],
-      tableLineWidth: 0.5,
+      // tableLineColor: [0, 0, 0],
+      // tableLineWidth: 0.5,
       columnStyles: {
         0: { cellWidth: 22 }, // Date
         1: { cellWidth: 16 }, // Quantity
         2: { cellWidth: 30 }, // Type
         3: { cellWidth: 24 }, // Rate
         4: { cellWidth: 28 }, // Amt
-        5: { cellWidth: 28 }, // Deposit
-        6: { cellWidth: 32 }, // Balance
+        5: { cellWidth: 25 }, // Deposit
+        6: { cellWidth: 25 }, // Balance
+        7: { cellWidth: 22 }, // Driver
       },
       tableWidth: "auto",
-      margin: { left: 14, right: 14 },
+      margin: { left: 8, right: 8 },
     });
 
     const fileName = (historyCompany.name || "company").replace(/\s+/g, "_") + "_history_" + new Date().toISOString().split("T")[0] + ".pdf";
@@ -1044,10 +1047,11 @@ export default function Companies() {
                         <th style={simpleThStyle}>Amt</th>
                         <th style={simpleThStyle}>Deposit</th>
                         <th style={simpleThStyle}>Due (on me)</th>
+                        <th style={simpleThStyle}>Driver</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {historyRows.map((row) => (
+                      {historyRows.map((row: any) => (
                         <tr key={row.id} style={{ borderBottom: "1px solid #000" }}>
                           <td style={simpleTdStyle}>{formatDatePdf(row.createdAt || "")}</td>
                           <td style={simpleTdStyle}>{row.qtyKg ? Number(row.qtyKg).toFixed(0) : "-"}</td>
@@ -1056,6 +1060,7 @@ export default function Companies() {
                           <td style={simpleTdStyle}>{Number(row.bill).toFixed(0)}</td>
                           <td style={simpleTdStyle}>{Number(row.paid).toFixed(0)}</td>
                           <td style={simpleTdStyle}>{Number(row.balanceAfter).toFixed(0)}</td>
+                          <td style={simpleTdStyle}>{row?.driver?.name || "-"}</td>
                         </tr>
                       ))}
                     </tbody>

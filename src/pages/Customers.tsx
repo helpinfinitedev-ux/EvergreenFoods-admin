@@ -119,7 +119,7 @@ export default function Customers() {
     }
 
     // Simple table headers matching the image format
-    const headers = ["Date", "Quantity", "Type", "Rate", "Amt", "Deposit", "Balance"];
+    const headers = ["Date", "Quantity", "Type", "Rate", "Amt", "Deposit", "Balance", "Driver"];
     const rows = historyRows.map((row: any) => {
       return [
         formatDatePdf(row.createdAt || ""),
@@ -129,6 +129,7 @@ export default function Customers() {
         row?.type !== "SELL" ? Number(row.bill || 0).toFixed(2) : "Cash: " + Number(row.paymentCash || 0) + "\n UPI : " + Number(row.paymentUpi || 0) + "\n Bank : " + row?.bank?.name || "-",
         Number(row.paid || 0).toFixed(2),
         Number(row.balanceAfter || 0).toFixed(2),
+        row?.driver?.name || "-",
       ];
     });
 
@@ -140,7 +141,7 @@ export default function Customers() {
       startY: tableStartY,
       styles: {
         fontSize: 8,
-        cellPadding: 2,
+        cellPadding: 1,
         overflow: "linebreak",
         valign: "middle",
         halign: "center",
@@ -161,19 +162,20 @@ export default function Customers() {
       alternateRowStyles: {
         fillColor: [255, 255, 255],
       },
-      tableLineColor: [0, 0, 0],
-      tableLineWidth: 0.5,
+      // tableLineColor: [0, 0, 0],
+      // tableLineWidth: 0.5,
       columnStyles: {
         0: { cellWidth: 22 }, // Date
         1: { cellWidth: 16 }, // Quantity
         2: { cellWidth: 30 }, // Type
         3: { cellWidth: 24 }, // Rate
         4: { cellWidth: 28 }, // Amt
-        5: { cellWidth: 28 }, // Deposit
-        6: { cellWidth: 32 }, // Balance
+        5: { cellWidth: 25 }, // Deposit
+        6: { cellWidth: 25 }, // Balance
+        7: { cellWidth: 22 }, // Driver
       },
       tableWidth: "auto",
-      margin: { left: 14, right: 14 },
+      margin: { left: 8, right: 8 },
     });
 
     const fileName = (historyCustomer.name || "customer").replace(/\s+/g, "_") + "_history_" + new Date().toISOString().split("T")[0] + ".pdf";
@@ -1112,6 +1114,7 @@ export default function Customers() {
                         <th style={simpleThStyle}>Amt</th>
                         <th style={simpleThStyle}>Deposit</th>
                         <th style={simpleThStyle}>Due(on customer)</th>
+                        <th style={simpleThStyle}>Driver</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1129,6 +1132,7 @@ export default function Customers() {
                             </td>
                           )}
                           <td style={simpleTdStyle}>{Number(row.balanceAfter).toFixed(2)}</td>
+                          <td style={simpleTdStyle}>{row?.driver?.name || "-"}</td>
                         </tr>
                       ))}
                     </tbody>
