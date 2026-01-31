@@ -576,7 +576,7 @@ export default function PaymentsReceived() {
                 Total Received
               </Typography>
               <Typography variant="h6" sx={{ fontWeight: 700, color: "#10b981" }}>
-                ₹{paymentRecords.reduce((sum, p) => sum + Number(p.amount || 0), 0).toLocaleString()}
+                ₹{paymentRecords.reduce((sum, p) => sum + Number(p.totalAmount || 0), 0).toLocaleString()}
               </Typography>
             </Box>
           </Box>
@@ -633,10 +633,10 @@ export default function PaymentsReceived() {
                         </TableCell>
                         <TableCell align="right">
                           <Typography variant="body2" sx={{ fontWeight: 600, color: "#10b981" }}>
-                            ₹{Number(payment.amount || 0).toLocaleString()}
+                            ₹{Number(payment?.totalAmount || 0).toLocaleString()}
                           </Typography>
                         </TableCell>
-                        <TableCell sx={{ color: "#6b7280", maxWidth: 200 }}>{payment.description || "-"}</TableCell>
+                        <TableCell sx={{ color: "#6b7280", maxWidth: 200 }}>{payment.details || "-"}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

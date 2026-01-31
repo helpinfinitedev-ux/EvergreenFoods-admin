@@ -1125,7 +1125,11 @@ export default function Customers() {
                           <td style={simpleTdStyle}>{row.type}</td>
                           <td style={simpleTdStyle}>{row.rate ? Number(row.rate).toFixed(2) : "-"}</td>
                           <td style={simpleTdStyle}>{Number(row?.bill || 0)}</td>
-                          {row?.type !== "SELL" && <td style={simpleTdStyle}>{Number(row.bill).toFixed(2)}</td>}
+                          {row?.type !== "SELL" && (
+                            <td style={simpleTdStyle}>
+                              {Number(row.paid).toFixed(2)} {row?.bank?.name || "-"}
+                            </td>
+                          )}
                           {row?.type === "SELL" && (
                             <td style={simpleTdStyle}>
                               Cash: {Number(row.paymentCash || 0)} <br></br> UPI : {Number(row.paymentUpi || 0)} <br></br> Bank : {row?.bank?.name || "-"}
