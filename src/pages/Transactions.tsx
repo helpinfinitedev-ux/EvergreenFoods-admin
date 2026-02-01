@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { adminAPI } from "../api";
+import { adminAPI, bankAPI, companyAPI, customerAPI } from "../api";
 
 export default function Transactions() {
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -8,16 +8,25 @@ export default function Transactions() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [drivers, setDrivers] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [banks, setBanks] = useState<any[]>([]);
   const [filter, setFilter] = useState({
     type: "",
     startDate: "",
     endDate: "",
     driverId: "",
-    details: "",
+    companyId: "",
+    customerId: "",
+    bankId: "",
+    totalAmount: "",
   });
 
   useEffect(() => {
     loadDrivers();
+    loadCompanies();
+    loadCustomers();
+    loadBanks();
     loadTransactions(1, false);
   }, []);
 
@@ -27,6 +36,33 @@ export default function Transactions() {
       setDrivers(res.data || []);
     } catch (err) {
       console.error("Failed to load drivers", err);
+    }
+  };
+
+  const loadCompanies = async () => {
+    try {
+      const res = await companyAPI.getAll({});
+      setCompanies(res.data?.companies || []);
+    } catch (err) {
+      console.error("Failed to load companies", err);
+    }
+  };
+
+  const loadCustomers = async () => {
+    try {
+      const res = await customerAPI.getAll();
+      setCustomers(res.data || []);
+    } catch (err) {
+      console.error("Failed to load customers", err);
+    }
+  };
+
+  const loadBanks = async () => {
+    try {
+      const res = await bankAPI.getAll();
+      setBanks(res.data || []);
+    } catch (err) {
+      console.error("Failed to load banks", err);
     }
   };
 
@@ -40,7 +76,10 @@ export default function Transactions() {
       const params: any = {};
       if (filter.type) params.type = filter.type;
       if (filter.driverId) params.driverId = filter.driverId;
-      if (filter.details) params.details = filter.details;
+      if (filter.companyId) params.companyId = filter.companyId;
+      if (filter.customerId) params.customerId = filter.customerId;
+      if (filter.bankId) params.bankId = filter.bankId;
+      if (filter.totalAmount) params.totalAmount = filter.totalAmount;
       if (filter.startDate) params.startDate = filter.startDate;
       if (filter.endDate) params.endDate = filter.endDate;
       params.page = nextPage;
@@ -115,6 +154,8 @@ export default function Transactions() {
               <option value="WEIGHT_LOSS">Weight Loss</option>
               <option value="DEBIT_NOTE">Debit Note</option>
               <option value="CREDIT_NOTE">Credit Note</option>
+              <option value="RECEIVE_PAYMENT">Receive Payment</option>
+              <option value="PAYMENT">Payment</option>
             </select>
           </div>
 
@@ -140,12 +181,77 @@ export default function Transactions() {
           </div>
 
           <div style={{ flex: "1", minWidth: "200px" }}>
-            <label style={{ display: "block", marginBottom: "8px", fontWeight: "500", fontSize: "14px" }}>Details</label>
+            <label style={{ display: "block", marginBottom: "8px", fontWeight: "500", fontSize: "14px" }}>Company</label>
+            <select
+              value={filter.companyId}
+              onChange={(e) => setFilter({ ...filter, companyId: e.target.value })}
+              style={{
+                width: "100%",
+                padding: "10px",
+                border: "1px solid #ddd",
+                borderRadius: "6px",
+                fontSize: "14px",
+              }}>
+              <option value="">All Companies</option>
+              {companies.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ flex: "1", minWidth: "200px" }}>
+            <label style={{ display: "block", marginBottom: "8px", fontWeight: "500", fontSize: "14px" }}>Customer</label>
+            <select
+              value={filter.customerId}
+              onChange={(e) => setFilter({ ...filter, customerId: e.target.value })}
+              style={{
+                width: "100%",
+                padding: "10px",
+                border: "1px solid #ddd",
+                borderRadius: "6px",
+                fontSize: "14px",
+              }}>
+              <option value="">All Customers</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ flex: "1", minWidth: "200px" }}>
+            <label style={{ display: "block", marginBottom: "8px", fontWeight: "500", fontSize: "14px" }}>Bank</label>
+            <select
+              value={filter.bankId}
+              onChange={(e) => setFilter({ ...filter, bankId: e.target.value })}
+              style={{
+                width: "100%",
+                padding: "10px",
+                border: "1px solid #ddd",
+                borderRadius: "6px",
+                fontSize: "14px",
+              }}>
+              <option value="">All Banks</option>
+              {banks.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name} {b.label ? `(${b.label})` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ flex: "1", minWidth: "200px" }}>
+            <label style={{ display: "block", marginBottom: "8px", fontWeight: "500", fontSize: "14px" }}>Total Amount</label>
             <input
-              type="text"
-              placeholder="Search details..."
-              value={filter.details}
-              onChange={(e) => setFilter({ ...filter, details: e.target.value })}
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Total transaction amount"
+              value={filter.totalAmount}
+              onChange={(e) => setFilter({ ...filter, totalAmount: e.target.value })}
               style={{
                 width: "100%",
                 padding: "10px",
