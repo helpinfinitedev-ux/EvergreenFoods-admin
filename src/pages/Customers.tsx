@@ -985,7 +985,7 @@ export default function Customers() {
               width: "100%",
               maxWidth: "980px",
               maxHeight: "85vh",
-              overflow: "hidden",
+              overflow: "scroll",
               boxShadow: "0 25px 80px rgba(0, 0, 0, 0.35)",
             }}
             onClick={(e) => e.stopPropagation()}>
@@ -1097,7 +1097,7 @@ export default function Customers() {
             </div>
 
             {/* Content */}
-            <div style={{ padding: "20px 24px", maxHeight: "calc(85vh - 90px)", overflowY: "auto" }}>
+            <div style={{ padding: "20px 24px", marginBottom: "24px", maxHeight: "calc(85vh)", overflowY: "hidden" }}>
               {historyLoading ? (
                 <div style={{ padding: "48px", textAlign: "center", color: "#6b7280" }}>Loading transactions...</div>
               ) : historyError ? (
