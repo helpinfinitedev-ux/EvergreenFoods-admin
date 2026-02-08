@@ -90,6 +90,7 @@ export default function CashBook() {
               ))}
             </Select>
           </FormControl>
+          <div className="text-xl font-bold">Balance : {inTotal - outTotal}</div>
         </div>
       </div>
       <div className="mx-auto max-w-full border-2 border-neutral-700 bg-transparent">
