@@ -3,6 +3,7 @@ import { adminAPI, bankAPI, expenseAPI } from "../api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Autocomplete, TextField, Box, Typography } from "@mui/material";
+import Loader from "../components/Loader";
 
 interface Expense {
   id: string;
@@ -183,6 +184,7 @@ export default function Expenses() {
     }
 
     try {
+      setLoading(true);
       await expenseAPI.create({
         type: formType,
         amount: parseFloat(formAmount),
@@ -199,6 +201,8 @@ export default function Expenses() {
       loadData();
     } catch (err) {
       alert("Failed to add expense");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -206,10 +210,13 @@ export default function Expenses() {
     if (!confirm("Are you sure you want to delete this expense?")) return;
 
     try {
+      setLoading(true);
       await expenseAPI.delete(id);
       loadData();
     } catch (err) {
       alert("Failed to delete expense");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -375,6 +382,7 @@ export default function Expenses() {
 
   return (
     <div style={{ padding: "30px" }}>
+      {loading && <Loader />}
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "30px" }}>
         <h1 style={{ fontSize: "28px", fontWeight: "700" }}>Expenses</h1>
@@ -552,7 +560,7 @@ export default function Expenses() {
                   <td style={tdStyle}>{expense.description}</td>
                   <td style={{ ...tdStyle, fontWeight: "600", color: "#dc2626" }}>₹{Number(expense.amount).toLocaleString()}</td>
                   <td style={tdStyle}>
-                    {/* <button
+                    <button
                       onClick={() => handleDelete(expense.id)}
                       style={{
                         padding: "6px 12px",
@@ -565,7 +573,7 @@ export default function Expenses() {
                         fontWeight: "500",
                       }}>
                       Delete
-                    </button> */}
+                    </button>
                     <button
                       onClick={() => openEditModal(expense)}
                       style={{
