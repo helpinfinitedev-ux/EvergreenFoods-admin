@@ -437,7 +437,7 @@ export default function Dashboard() {
       </div>
 
       {/* Today's Profit/Loss + Payment Received */}
-      <div style={{ marginBottom: "30px", display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "24px" }}>
+      <div style={{ marginBottom: "30px", display: "grid", gridTemplateColumns: "repeat(1, 1fr)", gap: "24px" }}>
         <div
           style={{
             background: (stats?.todayProfit || 0) >= 0 ? "linear-gradient(135deg, #10b981 0%, #059669 100%)" : "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
@@ -459,24 +459,6 @@ export default function Dashboard() {
             </div>
           </div>
           <div style={{ fontSize: "64px", opacity: 0.3 }}>{(stats?.todayProfit || 0) >= 0 ? "📈" : "📉"}</div>
-        </div>
-        <div
-          style={{
-            background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
-            padding: "32px",
-            borderRadius: "16px",
-            color: "white",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            boxShadow: "0 4px 6px rgba(245, 158, 11, 0.3)",
-          }}>
-          <div>
-            <div style={{ fontSize: "14px", opacity: 0.9, marginBottom: "8px", fontWeight: "500" }}>Payment Received Today</div>
-            <div style={{ fontSize: "36px", fontWeight: "800" }}>₹{Number(totalCapital?.todayCash || 0).toLocaleString()}</div>
-            <div style={{ fontSize: "13px", opacity: 0.8, marginTop: "8px" }}>Cash received and tracked today</div>
-          </div>
-          <div style={{ fontSize: "56px", opacity: 0.3 }}>💰</div>
         </div>
       </div>
 
