@@ -28,28 +28,33 @@ export default function CashBook() {
     const fetchCashFlow = async () => {
       setLoading(true);
       const date = selectedDate.format("YYYY-MM-DD");
-      const res = await api.get("/admin/cash-flow", { params: { date, bankId } });
+      try {
+        const res = await api.get("/admin/cash-flow", { params: { date, bankId } });
 
-      const maxLength = Math.max(res.data?.cashIn?.length || 0, res.data?.cashOut?.length || 0);
-      if (res?.data?.cashIn?.length < maxLength) {
-        for (let i = res?.data?.cashIn?.length; i < maxLength; i++) {
-          res.data?.cashIn?.push({
-            narration: "-",
-            amount: 0,
-          });
+        const maxLength = Math.max(res.data?.cashIn?.length || 0, res.data?.cashOut?.length || 0);
+        if (res?.data?.cashIn?.length < maxLength) {
+          for (let i = res?.data?.cashIn?.length; i < maxLength; i++) {
+            res.data?.cashIn?.push({
+              narration: "-",
+              amount: 0,
+            });
+          }
         }
-      }
-      if (res?.data?.cashOut?.length < maxLength) {
-        for (let i = res?.data?.cashOut?.length; i < maxLength; i++) {
-          res.data?.cashOut?.push({
-            narration: "-",
-            amount: 0,
-          });
+        if (res?.data?.cashOut?.length < maxLength) {
+          for (let i = res?.data?.cashOut?.length; i < maxLength; i++) {
+            res.data?.cashOut?.push({
+              narration: "-",
+              amount: 0,
+            });
+          }
         }
+        setCashIn(res.data?.cashIn?.slice(0, maxLength) || []);
+        setCashOut(res.data?.cashOut?.slice(0, maxLength) || []);
+        setLoading(false);
+      } catch (err) {
+        console.error("Failed to fetch cash flow", err);
+        setLoading(false);
       }
-      setCashIn(res.data?.cashIn?.slice(0, maxLength) || []);
-      setCashOut(res.data?.cashOut?.slice(0, maxLength) || []);
-      setLoading(false);
     };
     fetchCashFlow();
   }, [selectedDate, bankId]);
