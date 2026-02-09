@@ -72,34 +72,19 @@ export default function CashBook() {
     loadBanks();
   }, []);
 
+  const endingBalance = inTotal - outTotal + openingBalance;
+
   return (
     <div className="w-full min-h-screen bg-transparent">
       {loading && <Loader />}
       <div className="mx-auto max-w-full">
         {" "}
         <div className="flex items-center justify-end gap-2 p-3">
-          <div className="flex items-center gap-2 font-bold text-green-800 p-4 border-gray-400 border-r-[2px]">
-            Opening Balance: <span className="font-bold text-gray-900">{openingBalance}</span>
+          <div className="flex items-center gap-2 font-bold text-blue-800 p-4 border-gray-400 border-r-[2px]">
+            Opening Balance: <span className="font-bold text-blue-900">{openingBalance}</span>
           </div>
-          <div className="text-md p-4 font-bold">Balance : {inTotal - outTotal + openingBalance} </div>
+          <div className={`text-md p-4 font-bold ${endingBalance > openingBalance ? "text-green-800" : "text-red-800"}`}>Ending Balance : {inTotal - outTotal + openingBalance} </div>
           <CashBookDatePicker value={selectedDate} onChange={setSelectedDate} />
-          <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel>Bank</InputLabel>
-            <Select
-              label="Bank"
-              value={bankId}
-              onChange={(e) => {
-                const value = e.target.value;
-                setBankId(String(value));
-              }}>
-              <MenuItem value="cash">Cash</MenuItem>
-              {banks.map((bank) => (
-                <MenuItem key={bank.id} value={bank.id}>
-                  {bank.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
         </div>
       </div>
       <div className="mx-auto max-w-full border-2 border-neutral-700 bg-transparent">
