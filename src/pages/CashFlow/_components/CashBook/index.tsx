@@ -81,9 +81,9 @@ export default function CashBook() {
         {" "}
         <div className="flex items-center justify-end gap-2 p-3">
           <div className="flex items-center gap-2 font-bold text-blue-800 p-4 border-gray-400 border-r-[2px]">
-            Opening Balance: <span className="font-bold text-blue-900">{openingBalance}</span>
+            Opening Balance: <span className="font-bold text-blue-900">{openingBalance.toFixed(2)}</span>
           </div>
-          <div className={`text-md p-4 font-bold ${endingBalance > openingBalance ? "text-green-800" : "text-red-800"}`}>Ending Balance : {inTotal - outTotal + openingBalance} </div>
+          <div className={`text-md p-4 font-bold ${endingBalance > openingBalance ? "text-green-800" : "text-red-800"}`}>Ending Balance : {(inTotal - outTotal + openingBalance).toFixed(2)} </div>
           <CashBookDatePicker value={selectedDate} onChange={setSelectedDate} />
           <FormControl size="small" sx={{ minWidth: 180 }}>
             <InputLabel>Bank</InputLabel>
