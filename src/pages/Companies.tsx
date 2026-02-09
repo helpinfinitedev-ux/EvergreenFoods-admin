@@ -1054,12 +1054,12 @@ export default function Companies() {
                       {historyRows.map((row: any) => (
                         <tr key={row.id} style={{ borderBottom: "1px solid #000" }}>
                           <td style={simpleTdStyle}>{formatDatePdf(row.createdAt || "")}</td>
-                          <td style={simpleTdStyle}>{row.qtyKg ? Number(row.qtyKg).toFixed(0) : "-"}</td>
+                          <td style={simpleTdStyle}>{row.qtyKg ? Number(row.qtyKg).toFixed(2) : "-"}</td>
                           <td style={simpleTdStyle}>{row.type}</td>
-                          <td style={simpleTdStyle}>{row.rate ? Number(row.rate).toFixed(0) : "-"}</td>
-                          <td style={simpleTdStyle}>{Number(row.bill).toFixed(0)}</td>
-                          <td style={simpleTdStyle}>{Number(row.paid).toFixed(0)}</td>
-                          <td style={simpleTdStyle}>{Number(row.balanceAfter).toFixed(0)}</td>
+                          <td style={simpleTdStyle}>{row.rate ? Number(row.rate).toFixed(2) : "-"}</td>
+                          <td style={simpleTdStyle}>{Number(row.bill).toFixed(2)}</td>
+                          <td style={simpleTdStyle}>{Number(row.paid).toFixed(2)}</td>
+                          <td style={simpleTdStyle}>{Number(row.balanceAfter).toFixed(2)}</td>
                           <td style={simpleTdStyle}>{row?.driver?.name || "-"}</td>
                         </tr>
                       ))}
