@@ -85,6 +85,23 @@ export default function CashBook() {
           </div>
           <div className={`text-md p-4 font-bold ${endingBalance > openingBalance ? "text-green-800" : "text-red-800"}`}>Ending Balance : {inTotal - outTotal + openingBalance} </div>
           <CashBookDatePicker value={selectedDate} onChange={setSelectedDate} />
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <InputLabel>Bank</InputLabel>
+            <Select
+              label="Bank"
+              value={bankId}
+              onChange={(e) => {
+                const value = e.target.value;
+                setBankId(String(value));
+              }}>
+              <MenuItem value="cash">Cash</MenuItem>
+              {banks.map((bank) => (
+                <MenuItem key={bank.id} value={bank.id}>
+                  {bank.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
         </div>
       </div>
       <div className="mx-auto max-w-full border-2 border-neutral-700 bg-transparent">
