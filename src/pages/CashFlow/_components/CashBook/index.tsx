@@ -15,7 +15,7 @@ export default function CashBook() {
   const [loading, setLoading] = useState(false);
   const [banks, setBanks] = useState<any[]>([]);
   const [bankId, setBankId] = useState("cash");
-
+  const [openingBalance, setOpeningBalance] = useState(0);
   const selection = [
     {
       id: 1,
@@ -50,6 +50,7 @@ export default function CashBook() {
         }
         setCashIn(res.data?.cashIn?.slice(0, maxLength) || []);
         setCashOut(res.data?.cashOut?.slice(0, maxLength) || []);
+        setOpeningBalance(res.data?.openingBalance || 0);
         setLoading(false);
       } catch (err) {
         console.error("Failed to fetch cash flow", err);
@@ -77,6 +78,10 @@ export default function CashBook() {
       <div className="mx-auto max-w-full">
         {" "}
         <div className="flex items-center justify-end gap-2 p-3">
+          <div className="flex items-center gap-2 font-bold text-green-800 p-4 border-gray-400 border-r-[2px]">
+            Opening Balance: <span className="font-bold text-gray-900">{openingBalance}</span>
+          </div>
+          <div className="text-md p-4 font-bold">Balance : {inTotal - outTotal + openingBalance} </div>
           <CashBookDatePicker value={selectedDate} onChange={setSelectedDate} />
           <FormControl size="small" sx={{ minWidth: 180 }}>
             <InputLabel>Bank</InputLabel>
@@ -95,7 +100,6 @@ export default function CashBook() {
               ))}
             </Select>
           </FormControl>
-          <div className="text-xl font-bold">Balance : {inTotal - outTotal}</div>
         </div>
       </div>
       <div className="mx-auto max-w-full border-2 border-neutral-700 bg-transparent">
