@@ -147,7 +147,7 @@ export default function Dashboard() {
   // Handle opening bank edit modal
   const handleOpenBankEdit = (bank: { id: string; name: string; balance: number }) => {
     setEditingBank(bank);
-    setEditBankBalance(String(bank.balance));
+    setEditBankBalance("0");
     setEditBankModalOpen(true);
   };
 
@@ -707,9 +707,9 @@ export default function Dashboard() {
         <DialogTitle sx={{ fontWeight: 600 }}>Edit Bank Balance</DialogTitle>
         <DialogContent>
           <Typography variant="body2" sx={{ mb: 2, color: "#6b7280" }}>
-            Update balance for <strong>{editingBank?.name}</strong>
+            Add balance for <strong>{editingBank?.name}</strong>
           </Typography>
-          <TextField label="New Balance (₹)" type="number" fullWidth value={editBankBalance} onChange={(e) => setEditBankBalance(e.target.value)} sx={{ mt: 1 }} autoFocus />
+          <TextField label="Add Balance (₹)" type="number" fullWidth value={editBankBalance} onChange={(e) => setEditBankBalance(e.target.value)} sx={{ mt: 1 }} autoFocus />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setEditBankModalOpen(false)} color="inherit">
