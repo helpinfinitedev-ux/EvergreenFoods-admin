@@ -5,6 +5,7 @@ import dayjs, { Dayjs } from "dayjs";
 import CashBookDatePicker from "./CashBookDatePicker";
 import Loader from "../../../../components/Loader";
 import { FormControl, InputLabel, MenuItem, Select } from "@mui/material";
+import DateService from "../../../../utils/date";
 
 export default function CashBook() {
   const [cashIn, setCashIn] = useState<any[]>([]);
@@ -106,8 +107,19 @@ export default function CashBook() {
       </div>
       <div className="mx-auto max-w-full border-2 border-neutral-700 bg-transparent">
         <div className="grid grid-cols-2">
-          <SectionTable title="Cash In" columns={["Narration", "Amount"]} rows={cashIn.map((r) => [r.narration || "-", r.amount || "-"])} total={inTotal} />
-          <SectionTable title="Cash Out" columns={["Narration", "Amount"]} rows={cashOut.map((r) => [r.narration || "-", r.amount || "-"])} total={outTotal} rightBorder={false} />
+          <SectionTable
+            title="Cash In"
+            columns={["Date", "Narration", "Amount"]}
+            rows={cashIn.map((r) => [DateService.formatDatePdf(r.createdAt || "-"), r.narration || "-", r.amount || "-"])}
+            total={inTotal}
+          />
+          <SectionTable
+            title="Cash Out"
+            columns={["Date", "Narration", "Amount"]}
+            rows={cashOut.map((r) => [DateService.formatDatePdf(r.createdAt || "-"), r.narration || "-", r.amount || "-"])}
+            total={outTotal}
+            rightBorder={false}
+          />
         </div>
       </div>
     </div>
