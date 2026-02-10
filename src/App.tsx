@@ -66,50 +66,24 @@ function ProtectedLayout() {
         <h2 style={{ marginBottom: "30px", fontSize: "20px", fontWeight: "700" }}>Admin Panel</h2>
 
         <nav style={{ flex: 1 }}>
-          <NavItem to="/dashboard">
-            📊 Dashboard
-          </NavItem>
-          <NavItem to="/drivers">
-            👥 Drivers
-          </NavItem>
-          <NavItem to="/vehicles">
-            🚛 Vehicles
-          </NavItem>
+          <NavItem to="/dashboard">📊 Dashboard</NavItem>
+          <NavItem to="/drivers">👥 Drivers</NavItem>
+          <NavItem to="/vehicles">🚛 Vehicles</NavItem>
 
-          <NavItem to="/bought">
-            🛒 Bought
-          </NavItem>
-          <NavItem to="/sold">
-            💰 Sold
-          </NavItem>
-          <NavItem to="/payments">
-            💳 Payments
-          </NavItem>
-          <NavItem to="/payments-received">
-            ✅ Payments Received
-          </NavItem>
-          <NavItem to="/transactions">
-            📝 Transactions
-          </NavItem>
-          <NavItem to="/customers">
-            💰 Customers
-          </NavItem>
-          <NavItem to="/companies">
-            🏢 My Companies
-          </NavItem>
-          <NavItem to="/expenses">
-            💸 Expenses
-          </NavItem>
+          <NavItem to="/bought">🛒 Bought</NavItem>
+          <NavItem to="/sold">💰 Sold</NavItem>
+          <NavItem to="/payments">💳 Payments</NavItem>
+          <NavItem to="/payments-received">✅ Payments Received</NavItem>
+          <NavItem to="/transactions">📝 Transactions</NavItem>
+          <NavItem to="/customers">💰 Customers</NavItem>
+          <NavItem to="/companies">🏢 My Companies</NavItem>
+          <NavItem to="/expenses">💸 Expenses</NavItem>
 
-          <NavItem to="/my-udhaar">
+          {/* <NavItem to="/my-udhaar">
             📒 My Udhaar
-          </NavItem>
-          <NavItem to="/money-ledger">
-            💳 Money Ledger
-          </NavItem>
-          <NavItem to="/cash-flow">
-            💰 Cash Flow
-          </NavItem>
+          </NavItem> */}
+          <NavItem to="/money-ledger">💳 Money Ledger</NavItem>
+          <NavItem to="/cash-flow">💰 Cash Flow</NavItem>
         </nav>
 
         <div style={{ marginTop: "auto" }}>
