@@ -922,7 +922,7 @@ export default function Companies() {
             {/* Header */}
             <div
               style={{
-                padding: "20px 24px",
+                padding: "20px 24px 48px 24px",
                 borderBottom: "2px solid #000",
                 background: "#fff",
                 display: "flex",
@@ -1028,7 +1028,7 @@ export default function Companies() {
             </div>
 
             {/* Content */}
-            <div style={{ padding: "20px 24px", maxHeight: "calc(85vh - 90px)", overflowY: "hidden" }}>
+            <div style={{ padding: "20px 24px", maxHeight: "calc(85vh - 90px)" }}>
               {historyLoading ? (
                 <div style={{ padding: "48px", textAlign: "center", color: "#6b7280" }}>Loading transactions...</div>
               ) : historyError ? (
