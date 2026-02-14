@@ -183,13 +183,25 @@ export default function ReceivePaymentModal({ open, entity, banks, totalCash, on
   };
 
   const selectedBank = banks.find((b) => b.id === bankId);
+  const getEntityDueText = (entityName: string) => {
+    switch (entityName.toLowerCase()) {
+      case "customer":
+        return `Balance: ₹${Number(entity.balance).toLocaleString()}`;
+      case "company":
+        return `Amount due: ₹${Number(entity.balance).toLocaleString()}`;
+      case "driver":
+        return `Available: ₹${Number(entity.balance).toLocaleString()}`;
+      default:
+        return "";
+    }
+  };
 
   return (
     <ModalOverlay onClick={onClose}>
       <ModalContent onClick={(e) => e.stopPropagation()}>
         <ModalTitle>Receive Payment</ModalTitle>
         <ModalSubtitle>
-          {getEntityLabel(entity.type)}: {entity.name} • Due ₹{Number(entity.balance).toLocaleString()}
+          {getEntityLabel(entity.type)}: {entity.name} • {getEntityDueText(entity.type || "")}
         </ModalSubtitle>
 
         <Box sx={{ mb: "20px" }}>

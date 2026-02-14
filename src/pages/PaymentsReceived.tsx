@@ -8,6 +8,7 @@ import ReceivePaymentModal, { type SelectedEntity, type EntityType, type Bank } 
 import { Modal, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, TextField, Button, CircularProgress } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import VisibilityIcon from "@mui/icons-material/Visibility";
+import DeleteIcon from "@mui/icons-material/Delete";
 
 interface Customer {
   id: string;
@@ -32,6 +33,8 @@ interface Driver {
   mobile: string;
   status: string;
   baseSalary?: number;
+  cashInHand?: number;
+  upiInHand?: number;
 }
 
 interface PaymentRecord {
@@ -74,6 +77,7 @@ export default function PaymentsReceived() {
   const [detailsStartDate, setDetailsStartDate] = useState("");
   const [detailsEndDate, setDetailsEndDate] = useState("");
   const [detailsTotal, setDetailsTotal] = useState(0);
+  const [deletingPaymentId, setDeletingPaymentId] = useState<string | null>(null);
 
   useEffect(() => {
     loadCustomers();
@@ -167,7 +171,7 @@ export default function PaymentsReceived() {
     openModal({
       id: driver.id,
       name: driver.name,
-      balance: 0, // Drivers don't have a due amount
+      balance: driver.cashInHand || 0,
       type: "driver",
     });
   };
@@ -188,6 +192,7 @@ export default function PaymentsReceived() {
     setPaymentRecords([]);
     setDetailsStartDate("");
     setDetailsEndDate("");
+    setDeletingPaymentId(null);
   };
 
   const loadPaymentRecords = async (entityId: string, entityType: EntityType, start?: string, end?: string) => {
@@ -224,6 +229,23 @@ export default function PaymentsReceived() {
     }
   };
 
+  const handleDeletePayment = async (paymentId: string) => {
+    if (!window.confirm("Are you sure you want to delete this payment? This will reverse the payment and update the entity balance.")) return;
+    if (!detailsEntity) return;
+    setDeletingPaymentId(paymentId);
+    try {
+      await adminAPI.deleteReceivedPayment(paymentId);
+      await loadPaymentRecords(detailsEntity.id, detailsEntity.type, detailsStartDate || undefined, detailsEndDate || undefined);
+      loadCustomers();
+      loadCompanies();
+      loadDrivers();
+    } catch (err: any) {
+      alert(err.response?.data?.error || err.message || "Failed to delete payment");
+    } finally {
+      setDeletingPaymentId(null);
+    }
+  };
+
   const formatPaymentDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-IN", {
       day: "2-digit",
@@ -233,40 +255,41 @@ export default function PaymentsReceived() {
       minute: "2-digit",
     });
   };
-  console.log(detailsEntity);
   const handlePaymentSubmit = async (data: { entityId: string; entityType: EntityType; amount: number; method: "CASH" | "BANK"; bankId?: string }) => {
-    // Call appropriate API based on entity type
-    console.log(data);
-    switch (data.entityType) {
-      case "customer":
-        await adminAPI.receiveCustomerPayment({
-          customerId: data.entityId,
-          amount: data.amount,
-          method: data.method,
-          bankId: data.bankId,
-        });
-        loadCustomers();
-        break;
-      case "company":
-        // TODO: Add company payment API when available
-        await adminAPI.receiveCustomerPayment({
-          companyId: data.entityId,
-          amount: data.amount,
-          method: data.method,
-          bankId: data.bankId,
-        });
-        loadCompanies();
-        break;
-      case "driver":
-        // TODO: Add driver payment API when available
-        await adminAPI.receiveCustomerPayment({
-          driverId: data.entityId,
-          amount: data.amount,
-          method: data.method,
-          bankId: data.bankId,
-        });
-        loadDrivers();
-        break;
+    try {
+      switch (data.entityType) {
+        case "customer":
+          await adminAPI.receiveCustomerPayment({
+            customerId: data.entityId,
+            amount: data.amount,
+            method: data.method,
+            bankId: data.bankId,
+          });
+          loadCustomers();
+          break;
+        case "company":
+          // TODO: Add company payment API when available
+          await adminAPI.receiveCustomerPayment({
+            companyId: data.entityId,
+            amount: data.amount,
+            method: data.method,
+            bankId: data.bankId,
+          });
+          loadCompanies();
+          break;
+        case "driver":
+          // TODO: Add driver payment API when available
+          await adminAPI.receiveCustomerPayment({
+            driverId: data.entityId,
+            amount: data.amount,
+            method: data.method,
+            bankId: data.bankId,
+          });
+          loadDrivers();
+          break;
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.error || err.message || "Failed to receive payment");
     }
   };
 
@@ -610,6 +633,7 @@ export default function PaymentsReceived() {
                         Amount
                       </TableCell>
                       <TableCell sx={{ fontWeight: 600, backgroundColor: "#f9fafb" }}>Description</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 600, backgroundColor: "#f9fafb", width: 56 }}>Actions</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -625,7 +649,7 @@ export default function PaymentsReceived() {
                               borderRadius: 2,
                               fontSize: "12px",
                               fontWeight: 600,
-                              backgroundColor: payment?.details.includes("CASH") ? "#fef3c7" : "#dbeafe",
+                              backgroundColor: payment?.details?.includes?.("CASH") ? "#fef3c7" : "#dbeafe",
                               color: payment?.details === "CASH" ? "#92400e" : "#1e40af",
                             }}>
                             {payment?.details}
@@ -637,6 +661,21 @@ export default function PaymentsReceived() {
                           </Typography>
                         </TableCell>
                         <TableCell sx={{ color: "#6b7280", maxWidth: 200 }}>{payment.details || "-"}</TableCell>
+                        <TableCell align="center">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleDeletePayment(payment.id)}
+                            disabled={deletingPaymentId !== null}
+                            title="Delete payment"
+                            sx={{ "&:hover": { backgroundColor: "rgba(239, 68, 68, 0.08)" } }}>
+                            {deletingPaymentId === payment.id ? (
+                              <CircularProgress size={20} color="error" />
+                            ) : (
+                              <DeleteIcon fontSize="small" />
+                            )}
+                          </IconButton>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

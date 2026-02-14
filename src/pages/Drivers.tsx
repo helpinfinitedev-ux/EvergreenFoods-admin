@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { adminAPI } from "../api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { Button, CircularProgress } from "@mui/material";
+import Loader from "../components/Loader";
 
 interface DriverForm {
   name: string;
@@ -22,6 +24,9 @@ interface Transaction {
   imageUrl?: string;
   paymentCash?: number;
   paymentUpi?: number;
+  upiPaymentApproved?: boolean;
+  cashInHand?: number;
+  upiInHand?: number;
 }
 
 type HistoryTab = "BUY" | "SELL" | "WEIGHT_LOSS";
@@ -41,6 +46,7 @@ export default function Drivers() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [approveUpiPaymentLoading, setApproveUpiPaymentLoading] = useState(false);
 
   // Edit driver modal state
   const [showEditModal, setShowEditModal] = useState(false);
@@ -135,11 +141,7 @@ export default function Drivers() {
     if (!updatedAt) return false;
     const updated = new Date(updatedAt);
     const today = new Date();
-    return (
-      updated.getDate() === today.getDate() &&
-      updated.getMonth() === today.getMonth() &&
-      updated.getFullYear() === today.getFullYear()
-    );
+    return updated.getDate() === today.getDate() && updated.getMonth() === today.getMonth() && updated.getFullYear() === today.getFullYear();
   };
 
   // Format number with Indian style commas (no spaces)
@@ -228,7 +230,7 @@ export default function Drivers() {
             txn.rate ? "Rs." + Number(txn.rate).toFixed(2) : "-",
             txn.totalAmount ? "Rs." + formatIndianNumber(Number(txn.totalAmount)) : "-",
             txn.details?.replaceAll("₹", "Rs.") || "-",
-          ] as string[],
+          ] as string[]
       );
       columnStyles = {
         0: { cellWidth: 40 },
@@ -468,6 +470,20 @@ export default function Drivers() {
 
   if (loading) return <div style={{ padding: "40px", textAlign: "center" }}>Loading...</div>;
 
+  const handleApproveUpiPayment = async (id: string) => {
+    try {
+      setApproveUpiPaymentLoading(true);
+      const response = await adminAPI.approveUpiPayment(id);
+      if (response.status === 200) {
+        loadDriverHistory();
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.error || "Failed to approve UPI payment");
+    } finally {
+      setApproveUpiPaymentLoading(false);
+    }
+  };
+
   return (
     <div style={{ padding: "30px", overflow: "auto" }}>
       <div
@@ -560,7 +576,8 @@ export default function Drivers() {
             <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}>
               <th style={thStyle}>Name</th>
               <th style={thStyle}>Mobile</th>
-              <th style={thStyle}>Role</th>
+              <th style={thStyle}>Cash In Hand</th>
+              <th style={thStyle}>UPI In Hand</th>
               <th style={thStyle}>Status</th>
               <th style={thStyle}>Salary</th>
               <th style={thStyle}>Actions</th>
@@ -617,7 +634,20 @@ export default function Drivers() {
                         fontSize: "12px",
                         fontWeight: "500",
                       }}>
-                      {driver.role}
+                      {driver.cashInHand || 0}
+                    </span>
+                  </td>
+                  <td style={tdStyle}>
+                    <span
+                      style={{
+                        padding: "4px 12px",
+                        background: driver.role === "ADMIN" ? "#fef3c7" : "#dbeafe",
+                        color: driver.role === "ADMIN" ? "#92400e" : "#1e40af",
+                        borderRadius: "12px",
+                        fontSize: "12px",
+                        fontWeight: "500",
+                      }}>
+                      {driver.upiInHand || 0}
                     </span>
                   </td>
                   <td style={tdStyle}>
@@ -1054,8 +1084,8 @@ export default function Drivers() {
                           ? tab === "BUY"
                             ? "linear-gradient(135deg, #3b82f6, #2563eb)"
                             : tab === "SELL"
-                              ? "linear-gradient(135deg, #10b981, #059669)"
-                              : "linear-gradient(135deg, #f59e0b, #d97706)"
+                            ? "linear-gradient(135deg, #10b981, #059669)"
+                            : "linear-gradient(135deg, #f59e0b, #d97706)"
                           : "#fff",
                       color: historyTab === tab ? "white" : "#4b5563",
                       border: historyTab === tab ? "none" : "1px solid #d1d5db",
@@ -1203,7 +1233,7 @@ export default function Drivers() {
                       {historyTab !== "WEIGHT_LOSS" && <th style={historyThStyle}>Rate</th>}
                       {historyTab !== "WEIGHT_LOSS" && <th style={historyThStyle}>Total</th>}
                       {historyTab === "SELL" && <th style={historyThStyle}>Customer</th>}
-                      <th style={historyThStyle}>Details</th>
+                      {historyTab === "SELL" ? <th style={historyThStyle}>UPI Payment Approved</th> : <th style={historyThStyle}>Details</th>}
                       <th style={historyThStyle}>Image</th>
                     </tr>
                   </thead>
@@ -1227,7 +1257,23 @@ export default function Drivers() {
                           </td>
                         )}
                         {historyTab === "SELL" && <td style={historyTdStyle}>{txn.customer?.name || "-"}</td>}
-                        <td style={{ ...historyTdStyle, color: "#9ca3af", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis" }}>{txn.details || "-"}</td>
+                        {historyTab === "SELL" ? (
+                          <td style={historyTdStyle}>
+                            {!txn.upiPaymentApproved ? (
+                              approveUpiPaymentLoading ? (
+                                <Loader />
+                              ) : (
+                                <Button className="text-md" variant="contained" color="primary" onClick={() => handleApproveUpiPayment(txn.id)}>
+                                  Approve
+                                </Button>
+                              )
+                            ) : (
+                              <span className="p-2 bg-green-600 shadow-2xl rounded-md text-white font-semibold">Approved</span>
+                            )}
+                          </td>
+                        ) : (
+                          <td style={{ ...historyTdStyle, color: "#9ca3af", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis" }}>{txn.details || "-"}</td>
+                        )}
                         <td style={historyTdStyle}>
                           {txn.imageUrl ? (
                             <a href={txn.imageUrl} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
@@ -1272,12 +1318,24 @@ export default function Drivers() {
                 <div style={{ display: "flex", gap: "24px" }}>
                   <div style={{ textAlign: "right" }}>
                     <div style={{ fontSize: "12px", color: "#9ca3af", marginBottom: "2px" }}>Total Quantity</div>
-                    <div style={{ fontSize: "16px", fontWeight: "700", color: "#111827" }}>{transactions.filter((item)=>item.type !== "ADVANCE_PAYMENT").reduce((sum, t) => sum + Number(t.amount), 0).toFixed(2)} Kg</div>
+                    <div style={{ fontSize: "16px", fontWeight: "700", color: "#111827" }}>
+                      {transactions
+                        .filter((item) => item.type !== "ADVANCE_PAYMENT")
+                        .reduce((sum, t) => sum + Number(t.amount), 0)
+                        .toFixed(2)}{" "}
+                      Kg
+                    </div>
                   </div>
                   {historyTab !== "WEIGHT_LOSS" && (
                     <div style={{ textAlign: "right" }}>
                       <div style={{ fontSize: "12px", color: "#9ca3af", marginBottom: "2px" }}>Total Amount</div>
-                      <div style={{ fontSize: "16px", fontWeight: "700", color: "#111827" }}>₹{transactions.filter((item)=>item.type !== "ADVANCE_PAYMENT").reduce((sum, t) => sum + Number(t.totalAmount || 0), 0).toLocaleString("en-IN")}</div>
+                      <div style={{ fontSize: "16px", fontWeight: "700", color: "#111827" }}>
+                        ₹
+                        {transactions
+                          .filter((item) => item.type !== "ADVANCE_PAYMENT")
+                          .reduce((sum, t) => sum + Number(t.totalAmount || 0), 0)
+                          .toLocaleString("en-IN")}
+                      </div>
                     </div>
                   )}
                 </div>

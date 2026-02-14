@@ -25,6 +25,7 @@ export const adminAPI = {
     console.log(params);
     return api.get("/admin/dashboard", { params });
   },
+  approveUpiPayment: (id: string) => api.put(`/admin/transactions/${id}/approve-upi-payment`, { approved: true }),
   getDrivers: () => api.get("/admin/drivers"),
   getDriversActivitySummary: (params: { start: string; end: string }) => api.get("/admin/drivers/activity-summary", { params }),
   createDriver: (data: { name: string; mobile: string; password: string; baseSalary?: number }) => api.post("/admin/drivers", data),
@@ -44,15 +45,18 @@ export const adminAPI = {
   createCashToBank: (data: { bankName: string; amount: number; date: string; bankId: string }) => api.post("/admin/cash-to-bank", data),
   updateCashToBank: (id: string, data: { bankName?: string; amount?: number }) => api.put(`/admin/cash-to-bank/${id}`, data),
   deleteCashToBank: (id: string) => api.delete(`/admin/cash-to-bank/${id}`),
-    getTransactions: (params?: any) => api.get("/admin/transactions", { params }),
+  getTransactions: (params?: any) => api.get("/admin/transactions", { params }),
   getDriverHistory: (driverId: string, params?: { type?: string; startDate?: string; endDate?: string }) => api.get("/admin/transactions", { params: { driverId, ...params } }),
-  updateTransaction: (id: string, data: { amount?: number; rate?: number; totalAmount?: number; details?: string | null; companyId?: string; customerId?: string; driverId?: string; entityType?: string }) => api.put(`/admin/transactions/${id}`, data),
+  updateTransaction: (
+    id: string,
+    data: { amount?: number; rate?: number; totalAmount?: number; details?: string | null; companyId?: string; customerId?: string; driverId?: string; entityType?: string }
+  ) => api.put(`/admin/transactions/${id}`, data),
   deleteTransaction: (id: string) => api.delete(`/admin/transactions/${id}`),
   createFinancialNote: (data: any) => api.post("/admin/financial/note", data),
   getTotalCapital: () => api.get("/admin/total-capital"),
   updateTotalCapital: (amount: number) => api.patch("/admin/update-total-capital", { amount }),
-  getPaymentsReceived: (id: string, params: { entityType: string; start?: string; end?: string; page?: number }) =>
-    api.get(`/admin/payments-received/${id}`, { params }),
+  getPaymentsReceived: (id: string, params: { entityType: string; start?: string; end?: string; page?: number }) => api.get(`/admin/payments-received/${id}`, { params }),
+  deleteReceivedPayment: (id: string) => api.delete(`/admin/receive-payments/${id}`),
 };
 
 export const bankAPI = {
@@ -102,7 +106,8 @@ export const expenseAPI = {
 
 export const paymentAPI = {
   getAll: (params?: { page?: number; startDate?: string; endDate?: string; bankId?: string }) => api.get("/admin/payments", { params }),
-  create: (data: { amount: number; companyName?: string; description?: string; date?: string; bankId?: string; companyId?: string; customerId?: string , entityType:EntityType}) => api.post("/admin/payments", data),
+  create: (data: { amount: number; companyName?: string; description?: string; date?: string; bankId?: string; companyId?: string; customerId?: string; entityType: EntityType }) =>
+    api.post("/admin/payments", data),
   update: (id: string, data: { amount?: number; companyName?: string; description?: string; date?: string; bankId?: string | null; companyId?: string | null; customerId?: string | null }) =>
     api.patch(`/admin/payments/${id}`, data),
   delete: (id: string) => api.delete(`/admin/payments/${id}`),

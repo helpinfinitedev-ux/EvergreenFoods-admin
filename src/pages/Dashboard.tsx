@@ -26,6 +26,8 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import EditIcon from "@mui/icons-material/Edit";
+import DateService from "../utils/date";
+import Loader from "../components/Loader";
 
 interface ExpenseSummary {
   cashTotal: number;
@@ -60,10 +62,10 @@ export default function Dashboard() {
   const [totalUdhaar, setTotalUdhaar] = useState(0);
   const [totalCompanies, setTotalCompanies] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [date, setDate] = useState(new Date());
+  const [startDate, setStartDate] = useState<Dayjs>(dayjs().startOf("day"));
+  const [endDate, setEndDate] = useState<Dayjs>(dayjs().endOf("day"));
   const [driversActivity, setDriversActivity] = useState<DriverActivity[]>([]);
   const [driverSearch, setDriverSearch] = useState("");
-  const [driverTableDate, setDriverTableDate] = useState<Dayjs>(dayjs());
 
   // Edit Bank Modal State
   const [editBankModalOpen, setEditBankModalOpen] = useState(false);
@@ -77,27 +79,24 @@ export default function Dashboard() {
   const [editCapitalSubmitting, setEditCapitalSubmitting] = useState(false);
 
   useEffect(() => {
-    const loadStats = async (date: Date) => {
+    const loadStats = async () => {
       try {
-        // Get today's expenses
-        const startDate = new Date(date);
-        startDate.setHours(0, 0, 0, 0);
-
-        const endDate = new Date(date);
-        endDate.setHours(23, 59, 59, 999);
+        setLoading(true);
+        const start = startDate.clone().startOf("day").toDate();
+        const end = endDate.clone().endOf("day").toDate();
 
         const [dashboardRes, expenseRes, capitalRes, borrowedRes, companiesRes, driversActivityRes] = await Promise.all([
-          adminAPI.getDashboard({ start: startDate.getTime(), end: endDate.getTime() }),
+          adminAPI.getDashboard({ start: start.getTime(), end: end.getTime() }),
           expenseAPI.getSummary({
-            startDate: startDate.toISOString(),
-            endDate: endDate.toISOString(),
+            startDate: start.toISOString(),
+            endDate: end.toISOString(),
           }),
           adminAPI.getTotalCapital(),
           adminAPI.getBorrowedInfo(),
           companyAPI.getAll({ page: 1 }),
           adminAPI.getDriversActivitySummary({
-            start: startDate.toISOString(),
-            end: endDate.toISOString(),
+            start: start.toISOString(),
+            end: end.toISOString(),
           }),
         ]);
 
@@ -118,28 +117,8 @@ export default function Dashboard() {
         setLoading(false);
       }
     };
-    console.log(date);
-    loadStats(date);
-  }, [date]);
-
-  // Load driver activity when driverTableDate changes
-  useEffect(() => {
-    const loadDriverActivity = async () => {
-      try {
-        const startDate = driverTableDate.startOf("day").toDate();
-        const endDate = driverTableDate.endOf("day").toDate();
-
-        const driversActivityRes = await adminAPI.getDriversActivitySummary({
-          start: startDate.toISOString(),
-          end: endDate.toISOString(),
-        });
-        setDriversActivity(driversActivityRes.data?.driversActivity || []);
-      } catch (err) {
-        console.error("Failed to load driver activity", err);
-      }
-    };
-    loadDriverActivity();
-  }, [driverTableDate]);
+    loadStats();
+  }, [startDate, endDate]);
 
   // Filter drivers by search
   const filteredDriversActivity = driversActivity.filter((driver) => driver.driverName?.toLowerCase().includes(driverSearch.toLowerCase()));
@@ -166,11 +145,9 @@ export default function Dashboard() {
       setEditingBank(null);
       setEditBankBalance("");
       // Reload stats to reflect changes
-      const startDate = new Date(date);
-      startDate.setHours(0, 0, 0, 0);
-      const endDate = new Date(date);
-      endDate.setHours(23, 59, 59, 999);
-      const dashboardRes = await adminAPI.getDashboard({ start: startDate.getTime(), end: endDate.getTime() });
+      const start = startDate.clone().startOf("day").toDate();
+      const end = endDate.clone().endOf("day").toDate();
+      const dashboardRes = await adminAPI.getDashboard({ start: start.getTime(), end: end.getTime() });
       setStats(dashboardRes.data);
     } catch (err) {
       console.error("Failed to update bank balance", err);
@@ -209,27 +186,38 @@ export default function Dashboard() {
     }
   };
 
-  if (loading) return <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>Loading...</div>;
-  console.log(stats);
+  const dateRangeLabel = DateService.getDateInMMDDYYYY(startDate.toISOString()) + " – " + DateService.getDateInMMDDYYYY(endDate.toISOString());
+
   return (
     <div style={{ padding: "30px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-        <h1 style={{ marginBottom: "30px", fontSize: "28px", fontWeight: "700" }}>Dashboard</h1>
+      <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "30px", flexWrap: "wrap" }}>
+        <h1 style={{ margin: 0, fontSize: "28px", fontWeight: "700" }}>Dashboard</h1>
         <LocalizationProvider dateAdapter={AdapterDayjs}>
           <DatePicker
-            value={dayjs(date)}
+            label="Start Date"
+            value={startDate}
             onChange={(newValue: Dayjs | null) => {
-              if (newValue) {
-                setDate(newValue.toDate());
-              }
+              if (newValue) setStartDate(newValue);
             }}
-            slotProps={{ textField: { size: "small" } }}
+            slotProps={{ textField: { size: "small", sx: { width: 160 } } }}
+            maxDate={endDate}
+            disableFuture
+          />
+          <DatePicker
+            label="End Date"
+            value={endDate}
+            onChange={(newValue: Dayjs | null) => {
+              if (newValue) setEndDate(newValue);
+            }}
+            slotProps={{ textField: { size: "small", sx: { width: 160 } } }}
+            minDate={startDate}
             disableFuture
           />
         </LocalizationProvider>
       </div>
 
       {/* Main Stats Grid */}
+      {loading && <Loader />}
       <div
         style={{
           display: "grid",
@@ -238,8 +226,8 @@ export default function Dashboard() {
           marginBottom: "30px",
         }}>
         <StatCard title="Total Available Stock" value={`${(stats?.totalAvailableStock || 0).toFixed(2)} KG`} color="#7c3aed" icon="📦" />
-        <StatCard title="Today Buy" value={`${(stats?.todayBuy || 0)?.toFixed(2)} KG`} color="#10b981" icon="📥" />
-        <StatCard title="Today Sell" value={`${(stats?.todaySell || 0)?.toFixed(2)} KG`} color="#3b82f6" icon="📤" />
+        <StatCard title={`Buy (${dateRangeLabel})`} value={`${(stats?.todayBuy || 0)?.toFixed(2)} KG`} color="#10b981" icon="📥" />
+        <StatCard title={`Sell (${dateRangeLabel})`} value={`${(stats?.todaySell || 0)?.toFixed(2)} KG`} color="#3b82f6" icon="📤" />
         {/* <StatCard title="Today Shop Buy" value={`${(stats?.todayShopBuy || 0)?.toFixed(2)} KG`} color="#8b5cf6" icon="🛒" /> */}
       </div>
 
@@ -248,25 +236,12 @@ export default function Dashboard() {
         {/* Header with Title */}
         <Box sx={{ px: 3, py: 2, borderBottom: "1px solid #e5e7eb", backgroundColor: "#f9fafb" }}>
           <Typography variant="h6" sx={{ fontWeight: 600, color: "#374151" }}>
-            Driver Activity Summary
+            Driver Activity Summary ({dateRangeLabel})
           </Typography>
         </Box>
 
         {/* Filters Section */}
         <Box sx={{ px: 3, py: 2, display: "flex", gap: 2, alignItems: "center", borderBottom: "1px solid #e5e7eb", backgroundColor: "#fff" }}>
-          <LocalizationProvider dateAdapter={AdapterDayjs}>
-            <DatePicker
-              label="Select Date"
-              value={driverTableDate}
-              onChange={(newValue: Dayjs | null) => {
-                if (newValue) {
-                  setDriverTableDate(newValue);
-                }
-              }}
-              slotProps={{ textField: { size: "small", sx: { width: 180 } } }}
-              disableFuture
-            />
-          </LocalizationProvider>
           <TextField
             size="small"
             placeholder="Search driver..."
@@ -319,7 +294,7 @@ export default function Dashboard() {
               {filteredDriversActivity.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} align="center" sx={{ py: 4, color: "#6b7280" }}>
-                    No driver activity for this date
+                    No driver activity for {dateRangeLabel}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -373,7 +348,7 @@ export default function Dashboard() {
         </TableContainer>
       </Paper>
 
-      {/* Today's Buy & Sell Cards Row */}
+      {/* Buy & Sell Cards Row */}
       <div
         style={{
           display: "grid",
@@ -394,7 +369,7 @@ export default function Dashboard() {
             boxShadow: "0 4px 6px rgba(59, 130, 246, 0.3)",
           }}>
           <div>
-            <div style={{ fontSize: "14px", opacity: 0.9, marginBottom: "8px", fontWeight: "500" }}>Today's Buy (Purchase)</div>
+            <div style={{ fontSize: "14px", opacity: 0.9, marginBottom: "8px", fontWeight: "500" }}>Buy (Purchase) – {dateRangeLabel}</div>
             <div style={{ fontSize: "36px", fontWeight: "800" }}>₹{(stats?.todayBuyTotalAmount || 0).toLocaleString()}</div>
             <div style={{ display: "flex", gap: "16px", marginTop: "8px" }}>
               <div style={{ fontSize: "13px", opacity: 0.9 }}>
@@ -421,7 +396,7 @@ export default function Dashboard() {
             boxShadow: "0 4px 6px rgba(16, 185, 129, 0.3)",
           }}>
           <div>
-            <div style={{ fontSize: "14px", opacity: 0.9, marginBottom: "8px", fontWeight: "500" }}>Today's Sell</div>
+            <div style={{ fontSize: "14px", opacity: 0.9, marginBottom: "8px", fontWeight: "500" }}>Sell – {dateRangeLabel}</div>
             <div style={{ fontSize: "36px", fontWeight: "800" }}>₹{(stats?.todaySellTotalAmount || 0).toLocaleString()}</div>
             <div style={{ display: "flex", gap: "16px", marginTop: "8px" }}>
               <div style={{ fontSize: "13px", opacity: 0.9 }}>
@@ -436,7 +411,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Today's Profit/Loss + Payment Received */}
+      {/* Profit/Loss */}
       <div style={{ marginBottom: "30px", display: "grid", gridTemplateColumns: "repeat(1, 1fr)", gap: "24px" }}>
         <div
           style={{
@@ -450,7 +425,9 @@ export default function Dashboard() {
             boxShadow: (stats?.todayProfit || 0) >= 0 ? "0 4px 6px rgba(16, 185, 129, 0.3)" : "0 4px 6px rgba(239, 68, 68, 0.3)",
           }}>
           <div>
-            <div style={{ fontSize: "14px", opacity: 0.9, marginBottom: "8px", fontWeight: "500" }}>Today's {(stats?.todayProfit || 0) >= 0 ? "Profit" : "Loss"}</div>
+            <div style={{ fontSize: "14px", opacity: 0.9, marginBottom: "8px", fontWeight: "500" }}>
+              {(stats?.todayProfit || 0) >= 0 ? "Profit" : "Loss"} – {dateRangeLabel}
+            </div>
             <div style={{ fontSize: "42px", fontWeight: "800" }}>
               {(stats?.todayProfit || 0) >= 0 ? "+" : ""}₹{Math.abs(stats?.todayProfit || 0).toLocaleString()}
             </div>
@@ -645,7 +622,7 @@ export default function Dashboard() {
           gap: "24px",
           marginBottom: "30px",
         }}>
-        <StatCard title="Weight Loss" value={`${stats?.todayWeightLoss || 0} KG`} color="#ef4444" icon="📉" />
+        <StatCard title={`Weight Loss (${dateRangeLabel})`} value={`${stats?.todayWeightLoss || 0} KG`} color="#ef4444" icon="📉" />
         <div
           style={{
             background: "white",
@@ -668,7 +645,7 @@ export default function Dashboard() {
       </div>
 
       {/* Expense Summary Section */}
-      <h2 style={{ fontSize: "20px", fontWeight: "600", marginBottom: "20px", color: "#374151" }}>Today's Expenses</h2>
+      <h2 style={{ fontSize: "20px", fontWeight: "600", marginBottom: "20px", color: "#374151" }}>Expenses ({dateRangeLabel})</h2>
       <div
         style={{
           display: "grid",
