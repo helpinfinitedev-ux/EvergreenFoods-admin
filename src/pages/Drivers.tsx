@@ -1262,18 +1262,12 @@ export default function Drivers() {
                             {!txn.upiPaymentApproved ? (
                               approveUpiPaymentLoading ? (
                                 <Loader />
-                              ) : (
+                              ) : Number(txn.paymentUpi) !== 0 ? (
                                 <Button className="text-md" variant="contained" color="primary" onClick={() => handleApproveUpiPayment(txn.id)}>
-                                  {txn.paymentUpi ? (
-                                    <>
-                                      Approve
-                                      <br></br>
-                                      <span className="text-xs text-gray-500">₹{txn.paymentUpi}</span>
-                                    </>
-                                  ) : (
-                                    <span className="text-xs text-gray-500">-</span>
-                                  )}
+                                  {txn.paymentUpi && Number(txn.paymentUpi) !== 0 ? <>Approve</> : <span className="text-xs text-gray-500">-</span>}
                                 </Button>
+                              ) : (
+                                <span className="text-xs text-gray-500">-</span>
                               )
                             ) : (
                               <span className="p-2 bg-green-600 shadow-2xl rounded-md text-white font-semibold">
