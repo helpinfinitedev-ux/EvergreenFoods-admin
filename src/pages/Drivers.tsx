@@ -27,6 +27,7 @@ interface Transaction {
   upiPaymentApproved?: boolean;
   cashInHand?: number;
   upiInHand?: number;
+  bank: any;
 }
 
 type HistoryTab = "BUY" | "SELL" | "WEIGHT_LOSS";
