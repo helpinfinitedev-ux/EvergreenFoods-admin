@@ -1234,7 +1234,7 @@ export default function Drivers() {
                       {historyTab !== "WEIGHT_LOSS" && <th style={historyThStyle}>Total</th>}
                       {historyTab === "SELL" && <th style={historyThStyle}>Customer</th>}
                       {historyTab === "SELL" ? <th style={historyThStyle}>UPI Payment Approved</th> : <th style={historyThStyle}>Details</th>}
-                      <th style={historyThStyle}>Image</th>
+                      {historyTab === "SELL" ? <th style={historyThStyle}>Upi payment amount</th> : <th style={historyThStyle}>Image</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -1264,36 +1264,54 @@ export default function Drivers() {
                                 <Loader />
                               ) : (
                                 <Button className="text-md" variant="contained" color="primary" onClick={() => handleApproveUpiPayment(txn.id)}>
-                                  Approve
+                                  {txn.paymentUpi ? (
+                                    <>
+                                      Approve
+                                      <br></br>
+                                      <span className="text-xs text-gray-500">₹{txn.paymentUpi}</span>
+                                    </>
+                                  ) : (
+                                    <span className="text-xs text-gray-500">-</span>
+                                  )}
                                 </Button>
                               )
                             ) : (
-                              <span className="p-2 bg-green-600 shadow-2xl rounded-md text-white font-semibold">Approved</span>
+                              <span className="p-2 bg-green-600 shadow-2xl rounded-md text-white font-semibold">
+                                {txn.paymentUpi ? "Approved" : "No UPI done"}
+                                <br></br>
+                              </span>
                             )}
                           </td>
                         ) : (
                           <td style={{ ...historyTdStyle, color: "#9ca3af", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis" }}>{txn.details || "-"}</td>
                         )}
-                        <td style={historyTdStyle}>
-                          {txn.imageUrl ? (
-                            <a href={txn.imageUrl} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
-                              <img
-                                src={txn.imageUrl}
-                                alt="Transaction"
-                                style={{
-                                  width: "44px",
-                                  height: "44px",
-                                  borderRadius: "6px",
-                                  objectFit: "cover",
-                                  border: "1px solid #e5e7eb",
-                                }}
-                              />
-                              <span style={{ color: "#2563eb", textDecoration: "underline", fontSize: "12px", fontWeight: 600 }}>Open</span>
-                            </a>
-                          ) : (
-                            "-"
-                          )}
-                        </td>
+                        {historyTab === "SELL" ? (
+                          <td style={historyTdStyle}>
+                            ₹{txn.paymentUpi ? Number(txn.paymentUpi).toLocaleString("en-IN") : "-"} <br></br>
+                            <span className="text-xs text-gray-500">{txn?.bank?.name || "-"}</span>
+                          </td>
+                        ) : (
+                          <td style={historyTdStyle}>
+                            {txn.imageUrl ? (
+                              <a href={txn.imageUrl} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                                <img
+                                  src={txn.imageUrl}
+                                  alt="Transaction"
+                                  style={{
+                                    width: "44px",
+                                    height: "44px",
+                                    borderRadius: "6px",
+                                    objectFit: "cover",
+                                    border: "1px solid #e5e7eb",
+                                  }}
+                                />
+                                <span style={{ color: "#2563eb", textDecoration: "underline", fontSize: "12px", fontWeight: 600 }}>Open</span>
+                              </a>
+                            ) : (
+                              "-"
+                            )}
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
