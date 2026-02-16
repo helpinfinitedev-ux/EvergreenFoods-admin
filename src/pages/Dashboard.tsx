@@ -658,27 +658,6 @@ export default function Dashboard() {
         <ExpenseCard title="Total Expenses" value={expenseSummary?.total || 0} color="#7c3aed" bgColor="#f5f3ff" icon="💸" />
       </div>
 
-      {/* My Udhaar Card */}
-      <div
-        style={{
-          background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
-          padding: "32px",
-          borderRadius: "16px",
-          color: "white",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          boxShadow: "0 4px 6px rgba(99, 102, 241, 0.3)",
-          marginBottom: "30px",
-        }}>
-        <div>
-          <div style={{ fontSize: "14px", opacity: 0.9, marginBottom: "8px", fontWeight: "500" }}>My Udhaar</div>
-          <div style={{ fontSize: "36px", fontWeight: "800" }}>₹{totalUdhaar.toLocaleString()}</div>
-          <div style={{ fontSize: "13px", opacity: 0.8, marginTop: "8px" }}>Across {totalCompanies} People</div>
-        </div>
-        <div style={{ fontSize: "56px", opacity: 0.3 }}>💳</div>
-      </div>
-
       {/* Edit Bank Balance Modal */}
       <Dialog open={editBankModalOpen} onClose={() => setEditBankModalOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ fontWeight: 600 }}>Edit Bank Balance</DialogTitle>
