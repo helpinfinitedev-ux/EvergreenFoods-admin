@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { adminAPI, companyAPI, customerAPI } from "../api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { Button } from "@mui/material";
+import Loader from "../components/Loader";
+import DateService from "../utils/date";
 
 type EntityType = "company" | "customer" | "driver";
 
@@ -314,6 +317,20 @@ export default function Bought() {
     doc.save(fileName);
   };
 
+  const handleDelete = async (tx: any) => {
+    const ok = window.confirm("Delete this bought transaction?.");
+    if (!ok) return;
+    setLoading(true);
+    try {
+      await adminAPI.deleteTransaction(tx.id);
+      setTransactions((prev) => prev.filter((row) => row.id !== tx.id));
+    } catch (err: any) {
+      alert(err.response?.data?.error || "Failed to delete transaction");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getEntityList = () => {
     switch (entityType) {
       case "company":
@@ -327,140 +344,62 @@ export default function Bought() {
     }
   };
 
-  if (loading) return <div style={{ padding: "40px", textAlign: "center" }}>Loading...</div>;
-
   return (
-    <div style={{ padding: "30px" }}>
-      <div style={{ display: "flex", alignItems: "center", marginBottom: "30px", gap: "15px" }}>
-        <h1 style={{ fontSize: "28px", fontWeight: "700", margin: 0 }}>🛒 Bought (Purchase) Transactions</h1>
-        <span
-          style={{
-            padding: "6px 14px",
-            background: "#dbeafe",
-            borderRadius: "20px",
-            fontSize: "14px",
-            fontWeight: "600",
-            color: "#1e40af",
-          }}>
-          {transactions.length} records
-        </span>
+    <div className="p-[30px]">
+      {loading && <Loader />}
+      <div className="flex items-center mb-[30px] gap-[15px]">
+        <h1 className="text-[28px] font-bold m-0">🛒 Bought (Purchase) Transactions</h1>
+        <span className="px-3.5 py-1.5 bg-blue-100 rounded-full text-sm font-semibold text-blue-800">{transactions.length} records</span>
         <button
           onClick={downloadPdf}
           disabled={transactions.length === 0}
-          style={{
-            marginLeft: "auto",
-            padding: "10px 16px",
-            background: transactions.length === 0 ? "#e5e7eb" : "linear-gradient(135deg, #8b5cf6, #7c3aed)",
-            color: transactions.length === 0 ? "#9ca3af" : "white",
-            border: "none",
-            borderRadius: "10px",
-            cursor: transactions.length === 0 ? "not-allowed" : "pointer",
-            fontWeight: "700",
-            fontSize: "14px",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            boxShadow: transactions.length === 0 ? "none" : "0 2px 10px rgba(139, 92, 246, 0.3)",
-            transition: "transform 0.15s, box-shadow 0.15s",
-          }}
-          onMouseOver={(e) => {
-            if (transactions.length > 0) {
-              e.currentTarget.style.transform = "translateY(-1px)";
-              e.currentTarget.style.boxShadow = "0 4px 14px rgba(139, 92, 246, 0.4)";
-            }
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.transform = "translateY(0)";
-            e.currentTarget.style.boxShadow = transactions.length === 0 ? "none" : "0 2px 10px rgba(139, 92, 246, 0.3)";
-          }}>
-          <span style={{ fontSize: "16px" }}>📄</span>
+          className={`ml-auto px-4 py-2.5 rounded-lg font-bold text-sm flex items-center gap-2 transition-all duration-150 ${
+            transactions.length === 0
+              ? "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
+              : "bg-gradient-to-br from-violet-500 to-violet-600 text-white cursor-pointer shadow-[0_2px_10px_rgba(139,92,246,0.3)] hover:-translate-y-0.5 hover:shadow-[0_4px_14px_rgba(139,92,246,0.4)]"
+          }`}>
+          <span className="text-base">📄</span>
           Download PDF
         </button>
       </div>
 
       {/* Summary Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "20px", marginBottom: "25px" }}>
-        <div
-          style={{
-            background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
-            color: "white",
-            padding: "20px",
-            borderRadius: "12px",
-            boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
-          }}>
-          <div style={{ fontSize: "14px", opacity: 0.9, marginBottom: "5px" }}>Total Quantity</div>
-          <div style={{ fontSize: "26px", fontWeight: "700" }}>{totalAmount.toFixed(2)}</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
+        <div className="bg-gradient-to-br from-blue-500 to-blue-700 text-white p-5 rounded-xl shadow-[0_4px_12px_rgba(59,130,246,0.3)]">
+          <div className="text-sm opacity-90 mb-1.5">Total Quantity</div>
+          <div className="text-[26px] font-bold">{totalAmount.toFixed(2)}</div>
         </div>
-        <div
-          style={{
-            background: "linear-gradient(135deg, #10b981 0%, #047857 100%)",
-            color: "white",
-            padding: "20px",
-            borderRadius: "12px",
-            boxShadow: "0 4px 12px rgba(16, 185, 129, 0.3)",
-          }}>
-          <div style={{ fontSize: "14px", opacity: 0.9, marginBottom: "5px" }}>Total Value</div>
-          <div style={{ fontSize: "26px", fontWeight: "700" }}>₹{totalValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
+        <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white p-5 rounded-xl shadow-[0_4px_12px_rgba(16,185,129,0.3)]">
+          <div className="text-sm opacity-90 mb-1.5">Total Value</div>
+          <div className="text-[26px] font-bold">₹{totalValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
         </div>
       </div>
 
       {/* Entity Type Selection */}
-      <div
-        style={{
-          background: "white",
-          padding: "20px",
-          borderRadius: "12px",
-          marginBottom: "16px",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-          border: "1px solid #e5e7eb",
-        }}>
-        <label style={{ display: "block", marginBottom: "12px", fontWeight: "600", fontSize: "14px", color: "#374151" }}>Bought From</label>
-        <div style={{ display: "flex", gap: "24px", flexWrap: "wrap", alignItems: "center" }}>
+      <div className="bg-white p-5 rounded-xl mb-4 shadow-sm border border-gray-200">
+        <label className="block mb-3 font-semibold text-sm text-gray-700">Bought From</label>
+        <div className="flex gap-6 flex-wrap items-center">
           {/* Radio Buttons */}
-          <div style={{ display: "flex", gap: "20px" }}>
+          <div className="flex gap-5">
             {(["company", "customer", "driver"] as EntityType[]).map((type) => (
               <label
                 key={type}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  cursor: "pointer",
-                  padding: "10px 16px",
-                  borderRadius: "8px",
-                  border: entityType === type ? "2px solid #3b82f6" : "1px solid #d1d5db",
-                  background: entityType === type ? "#eff6ff" : "white",
-                  transition: "all 0.2s",
-                }}>
-                <input
-                  type="radio"
-                  name="entityType"
-                  value={type}
-                  checked={entityType === type}
-                  onChange={() => setEntityType(type)}
-                  style={{ accentColor: "#3b82f6", width: "16px", height: "16px" }}
-                />
-                <span style={{ fontWeight: entityType === type ? "600" : "500", color: entityType === type ? "#1d4ed8" : "#374151", textTransform: "capitalize" }}>{type}</span>
+                className={`flex items-center gap-2 cursor-pointer px-4 py-2.5 rounded-lg border transition-all duration-200 ${
+                  entityType === type ? "border-2 border-blue-500 bg-blue-50" : "border-gray-300 bg-white"
+                }`}>
+                <input type="radio" name="entityType" value={type} checked={entityType === type} onChange={() => setEntityType(type)} className="accent-blue-500 w-4 h-4" />
+                <span className={`capitalize ${entityType === type ? "font-semibold text-blue-700" : "font-medium text-gray-700"}`}>{type}</span>
               </label>
             ))}
           </div>
 
           {/* Entity Dropdown */}
-          <div style={{ flex: 1, minWidth: "250px" }}>
+          <div className="flex-1 min-w-[250px]">
             <select
               value={selectedEntityId}
               onChange={(e) => setSelectedEntityId(e.target.value)}
               disabled={loadingEntities}
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                border: "1px solid #d1d5db",
-                borderRadius: "8px",
-                fontSize: "14px",
-                outline: "none",
-                cursor: loadingEntities ? "wait" : "pointer",
-                background: loadingEntities ? "#f3f4f6" : "white",
-              }}>
+              className={`w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm outline-none transition-colors ${loadingEntities ? "cursor-wait bg-gray-100" : "cursor-pointer bg-white"}`}>
               <option value="">All {entityType}s</option>
               {getEntityList().map((entity) => (
                 <option key={entity.id} value={entity.id}>
@@ -473,273 +412,150 @@ export default function Bought() {
       </div>
 
       {/* Filters */}
-      <div
-        style={{
-          background: "white",
-          padding: "20px",
-          borderRadius: "12px",
-          marginBottom: "20px",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-          border: "1px solid #e5e7eb",
-        }}>
-        <div style={{ display: "flex", gap: "15px", flexWrap: "wrap", alignItems: "end" }}>
-          <div style={{ flex: "1", minWidth: "150px" }}>
-            <label style={{ display: "block", marginBottom: "8px", fontWeight: "500", fontSize: "14px", color: "#374151" }}>Start Date</label>
+      <div className="bg-white p-5 rounded-xl mb-5 shadow-sm border border-gray-200">
+        <div className="flex gap-[15px] flex-wrap items-end">
+          <div className="flex-1 min-w-[150px]">
+            <label className="block mb-2 font-medium text-sm text-gray-700">Start Date</label>
             <input
               type="date"
               value={filter.startDate}
               onChange={(e) => setFilter({ ...filter, startDate: e.target.value })}
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                border: "1px solid #d1d5db",
-                borderRadius: "8px",
-                fontSize: "14px",
-                outline: "none",
-                transition: "border-color 0.2s",
-              }}
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors"
             />
           </div>
 
-          <div style={{ flex: "1", minWidth: "150px" }}>
-            <label style={{ display: "block", marginBottom: "8px", fontWeight: "500", fontSize: "14px", color: "#374151" }}>End Date</label>
+          <div className="flex-1 min-w-[150px]">
+            <label className="block mb-2 font-medium text-sm text-gray-700">End Date</label>
             <input
               type="date"
               value={filter.endDate}
               onChange={(e) => setFilter({ ...filter, endDate: e.target.value })}
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                border: "1px solid #d1d5db",
-                borderRadius: "8px",
-                fontSize: "14px",
-                outline: "none",
-                transition: "border-color 0.2s",
-              }}
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors"
             />
           </div>
 
-          <div style={{ flex: "1.3", minWidth: "220px" }}>
-            <label style={{ display: "block", marginBottom: "8px", fontWeight: "500", fontSize: "14px", color: "#374151" }}>Search Details</label>
+          <div className="flex-[1.3] min-w-[220px]">
+            <label className="block mb-2 font-medium text-sm text-gray-700">Search Details</label>
             <input
               type="text"
               value={filter.detail}
               onChange={(e) => setFilter({ ...filter, detail: e.target.value })}
               placeholder='e.g. "abc"'
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                border: "1px solid #d1d5db",
-                borderRadius: "8px",
-                fontSize: "14px",
-                outline: "none",
-                transition: "border-color 0.2s",
-              }}
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors"
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleFilter();
               }}
             />
           </div>
-          <div style={{ flex: "1", minWidth: "200px" }}>
-            <label style={{ display: "block", marginBottom: "8px", fontWeight: "500", fontSize: "14px", color: "#374151" }}>Company Name</label>
+          <div className="flex-1 min-w-[200px]">
+            <label className="block mb-2 font-medium text-sm text-gray-700">Company Name</label>
             <input
               type="text"
               value={filter.companyName}
               onChange={(e) => setFilter({ ...filter, companyName: e.target.value })}
               placeholder='e.g. "Evergreen"'
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                border: "1px solid #d1d5db",
-                borderRadius: "8px",
-                fontSize: "14px",
-                outline: "none",
-                transition: "border-color 0.2s",
-              }}
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors"
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleFilter();
               }}
             />
           </div>
 
-          <button
-            onClick={handleFilter}
-            style={{
-              padding: "10px 24px",
-              background: "#3b82f6",
-              color: "white",
-              border: "none",
-              borderRadius: "8px",
-              cursor: "pointer",
-              fontWeight: "500",
-              fontSize: "14px",
-              transition: "background 0.2s",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "#2563eb")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "#3b82f6")}>
+          <button onClick={handleFilter} className="px-6 py-2.5 bg-blue-500 text-white rounded-lg font-medium text-sm hover:bg-blue-600 transition-colors cursor-pointer">
             Apply Filter
           </button>
 
-          <button
-            onClick={clearFilter}
-            style={{
-              padding: "10px 24px",
-              background: "#f3f4f6",
-              color: "#374151",
-              border: "1px solid #d1d5db",
-              borderRadius: "8px",
-              cursor: "pointer",
-              fontWeight: "500",
-              fontSize: "14px",
-              transition: "background 0.2s",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "#e5e7eb")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "#f3f4f6")}>
+          <button onClick={clearFilter} className="px-6 py-2.5 bg-gray-100 text-gray-700 border border-gray-300 rounded-lg font-medium text-sm hover:bg-gray-200 transition-colors cursor-pointer">
             Clear
           </button>
         </div>
       </div>
 
       {/* Table */}
-      <div
-        style={{
-          background: "white",
-          borderRadius: "12px",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-          overflow: "hidden",
-          border: "1px solid #e5e7eb",
-        }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "800px" }}>
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
+        <table className="w-full border-collapse min-w-[800px]">
           <thead>
-            <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e5e7eb" }}>
-              <th style={thStyle}>Date</th>
-              <th style={thStyle}>Driver</th>
-              <th style={thStyle}>Company</th>
-              <th style={thStyle}>Quantity</th>
-              <th style={thStyle}>Unit</th>
-              <th style={thStyle}>Rate</th>
-              <th style={thStyle}>Total Amount</th>
-              <th style={thStyle}>Image</th>
-              <th style={thStyle}>Details</th>
-              <th style={thStyle}>Actions</th>
+            <tr className="bg-slate-50 border-b-2 border-gray-200">
+              <th className="p-3.5 px-4 text-left text-[13px] font-semibold text-slate-600 uppercase tracking-tighter">Date</th>
+              <th className="p-3.5 px-4 text-left text-[13px] font-semibold text-slate-600 uppercase tracking-tighter">Driver</th>
+              <th className="p-3.5 px-4 text-left text-[13px] font-semibold text-slate-600 uppercase tracking-tighter">Company</th>
+              <th className="p-3.5 px-4 text-left text-[13px] font-semibold text-slate-600 uppercase tracking-tighter">Quantity</th>
+              <th className="p-3.5 px-4 text-left text-[13px] font-semibold text-slate-600 uppercase tracking-tighter">Unit</th>
+              <th className="p-3.5 px-4 text-left text-[13px] font-semibold text-slate-600 uppercase tracking-tighter">Rate</th>
+              <th className="p-3.5 px-4 text-left text-[13px] font-semibold text-slate-600 uppercase tracking-tighter">Total Amount</th>
+              <th className="p-3.5 px-4 text-left text-[13px] font-semibold text-slate-600 uppercase tracking-tighter">Image</th>
+              <th className="p-3.5 px-4 text-left text-[13px] font-semibold text-slate-600 uppercase tracking-tighter">Details</th>
+              <th className="p-3.5 px-4 text-left text-[13px] font-semibold text-slate-600 uppercase tracking-tighter">Actions</th>
             </tr>
           </thead>
           <tbody>
             {transactions.length === 0 ? (
               <tr>
-                <td colSpan={10} style={{ padding: "50px", textAlign: "center", color: "#9ca3af" }}>
-                  <div style={{ fontSize: "48px", marginBottom: "10px" }}>📭</div>
+                <td colSpan={10} className="p-[50px] text-center text-gray-400">
+                  <div className="text-5xl mb-2.5">📭</div>
                   No purchase transactions found
                 </td>
               </tr>
             ) : (
               transactions.map((tx, index) => (
-                <tr
-                  key={tx.id}
-                  style={{
-                    borderBottom: "1px solid #f1f5f9",
-                    background: index % 2 === 0 ? "white" : "#fafbfc",
-                  }}>
-                  <td style={tdStyle}>
-                    <div style={{ fontWeight: "500", color: "#1f2937" }}>
+                <tr key={tx.id} className={`border-b border-slate-100 ${index % 2 === 0 ? "bg-white" : "bg-slate-50/30"}`}>
+                  <td className="p-4 text-sm text-gray-500">
+                    <div className="font-medium text-gray-900">
                       {new Date(tx.date).toLocaleDateString("en-IN", {
                         day: "2-digit",
                         month: "short",
                         year: "numeric",
                       })}
                     </div>
-                    <div style={{ fontSize: "12px", color: "#9ca3af" }}>
+                    <div className="text-xs text-gray-400">
                       {new Date(tx.date).toLocaleTimeString("en-IN", {
                         hour: "2-digit",
                         minute: "2-digit",
                       })}
                     </div>
                   </td>
-                  <td style={tdStyle}>
-                    <div style={{ fontWeight: "500", color: "#374151" }}>{tx.driver?.name || "-"}</div>
+                  <td className="p-4 text-sm text-gray-500">
+                    <div className="font-medium text-gray-700">{tx.driver?.name || "-"}</div>
                   </td>
-                  <td style={tdStyle}>
-                    <div style={{ fontWeight: "500", color: "#374151" }}>{tx?.companyName || tx?.company?.name || tx?.customer?.name || tx?.driver?.name || "-"}</div>
-                    {tx.customer?.phone && <div style={{ fontSize: "12px", color: "#9ca3af" }}>{tx.customer.phone}</div>}
+                  <td className="p-4 text-sm text-gray-500">
+                    <div className="font-medium text-gray-700">{tx?.companyName || tx?.company?.name || tx?.customer?.name || tx?.driver?.name || "-"}</div>
+                    {tx.customer?.phone && <div className="text-xs text-gray-400">{tx.customer.phone}</div>}
                   </td>
-                  <td style={tdStyle}>
-                    <span style={{ fontWeight: "600", color: "#1f2937" }}>{Number(tx.amount).toFixed(2)}</span>
+                  <td className="p-4 text-sm text-gray-500">
+                    <span className="font-semibold text-gray-900">{Number(tx.amount).toFixed(2)}</span>
                   </td>
-                  <td style={tdStyle}>
-                    <span
-                      style={{
-                        padding: "3px 8px",
-                        background: "#f1f5f9",
-                        borderRadius: "4px",
-                        fontSize: "12px",
-                        fontWeight: "500",
-                        color: "#64748b",
-                      }}>
-                      {tx.unit}
-                    </span>
+                  <td className="p-4 text-sm text-gray-500">
+                    <span className="px-2 py-0.5 bg-slate-100 rounded text-xs font-medium text-slate-500">{tx.unit}</span>
                   </td>
-                  <td style={tdStyle}>{tx.rate ? <span style={{ color: "#374151" }}>₹{Number(tx.rate).toFixed(2)}</span> : "-"}</td>
-                  <td style={tdStyle}>
-                    {tx.totalAmount ? (
-                      <span
-                        style={{
-                          fontWeight: "600",
-                          color: "#059669",
-                          fontSize: "15px",
-                        }}>
-                        ₹{Number(tx.totalAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                      </span>
-                    ) : (
-                      "-"
-                    )}
+                  <td className="p-4 text-sm text-gray-500">{tx.rate ? <span className="text-gray-700">₹{Number(tx.rate).toFixed(2)}</span> : "-"}</td>
+                  <td className="p-4 text-sm text-gray-500">
+                    {tx.totalAmount ? <span className="font-semibold text-emerald-600 text-[15px]">₹{Number(tx.totalAmount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span> : "-"}
                   </td>
-                  <td style={tdStyle}>
+                  <td className="p-4 text-sm text-gray-500">
                     {tx.imageUrl ? (
                       <a href={tx.imageUrl} target="_blank" rel="noopener noreferrer">
-                        <img
-                          src={tx.imageUrl}
-                          alt="Slip"
-                          style={{
-                            width: "60px",
-                            height: "60px",
-                            objectFit: "cover",
-                            borderRadius: "8px",
-                            border: "1px solid #e5e7eb",
-                            cursor: "pointer",
-                            transition: "transform 0.2s",
-                          }}
-                          onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.1)")}
-                          onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
-                        />
+                        <img src={tx.imageUrl} alt="Slip" className="w-[60px] h-[60px] object-cover rounded-lg border border-gray-200 cursor-pointer transition-transform hover:scale-110" />
                       </a>
                     ) : (
-                      <span style={{ color: "#9ca3af", fontSize: "12px" }}>No image</span>
+                      <span className="text-gray-400 text-xs">No image</span>
                     )}
                   </td>
-                  <td style={tdStyle}>
-                    <span style={{ color: "#6b7280", fontSize: "13px" }}>{tx.details || "-"}</span>
+                  <td className="p-4 text-sm text-gray-500">
+                    <span className="text-gray-500 text-[13px]">{tx.details || "-"}</span>
                   </td>
-                  <td style={tdStyle}>
+                  <td className="p-4 flex gap-2 items-center text-sm text-gray-500">
                     <button
                       onClick={() => openEditModal(tx)}
-                      style={{
-                        padding: "6px 14px",
-                        background: "#f59e0b",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                        fontWeight: "500",
-                        fontSize: "13px",
-                        transition: "background 0.2s",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "5px",
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = "#d97706")}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = "#f59e0b")}>
+                      className="px-3.5 py-1.5 bg-amber-500 text-white rounded-md font-medium text-[13px] hover:bg-amber-600 transition-colors flex items-center gap-1 cursor-pointer">
                       ✏️ Edit
                     </button>
+                    {DateService.isDateWithinToday(new Date(tx.createdAt)) ? (
+                      <button className="bg-red-600 py-[7px] cursor-pointer hover:bg-red-800 px-4 text-[12px] text-white rounded-md shadow-xl" onClick={() => handleDelete(tx)}>
+                        Delete
+                      </button>
+                    ) : (
+                      <span className="text-gray-400 text-xs">Not Bought Today</span>
+                    )}
                   </td>
                 </tr>
               ))
@@ -748,274 +564,114 @@ export default function Bought() {
         </table>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "center", marginTop: "16px" }}>
+      <div className="flex justify-center mt-4">
         <button
           onClick={handleLoadMore}
           disabled={loadingMore || page >= totalPages}
-          style={{
-            padding: "10px 18px",
-            background: loadingMore || page >= totalPages ? "#e5e7eb" : "#f3f4f6",
-            color: loadingMore || page >= totalPages ? "#9ca3af" : "#374151",
-            border: "1px solid #d1d5db",
-            borderRadius: "10px",
-            cursor: loadingMore || page >= totalPages ? "not-allowed" : "pointer",
-            fontWeight: "700",
-            fontSize: "13px",
-          }}>
+          className={`px-4.5 py-2.5 rounded-[10px] font-bold text-[13px] border transition-colors ${
+            loadingMore || page >= totalPages ? "bg-gray-200 text-gray-400 border-gray-200 cursor-not-allowed" : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200 cursor-pointer"
+          }`}>
           {loadingMore ? "Loading..." : page >= totalPages ? "No More Transactions" : "Load More"}
         </button>
       </div>
 
       {/* Edit Modal */}
       {editModalOpen && editingTransaction && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0, 0, 0, 0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-          onClick={closeEditModal}>
-          <div
-            style={{
-              background: "white",
-              borderRadius: "16px",
-              padding: "30px",
-              width: "100%",
-              maxHeight: "80vh",
-              overflowY: "auto",
-              maxWidth: "450px",
-              boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
-              animation: "fadeIn 0.2s ease-out",
-            }}
-            onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "25px" }}>
-              <h2 style={{ margin: 0, fontSize: "22px", fontWeight: "700", color: "#1f2937" }}>✏️ Edit Transaction</h2>
-              <button
-                onClick={closeEditModal}
-                style={{
-                  background: "none",
-                  border: "none",
-                  fontSize: "24px",
-                  cursor: "pointer",
-                  color: "#9ca3af",
-                  padding: "5px",
-                  lineHeight: 1,
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = "#374151")}
-                onMouseLeave={(e) => (e.currentTarget.style.color = "#9ca3af")}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] animate-in fade-in duration-200" onClick={closeEditModal}>
+          <div className="bg-white rounded-2xl p-[30px] w-full max-h-[80vh] overflow-y-auto max-w-[450px] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="m-0 text-[22px] font-bold text-gray-800">✏️ Edit Transaction</h2>
+              <button onClick={closeEditModal} className="bg-transparent border-none text-2xl cursor-pointer text-gray-400 p-1.25 leading-none hover:text-gray-700 transition-colors">
                 ×
               </button>
             </div>
 
             {/* Transaction Info */}
-            <div
-              style={{
-                background: "#f8fafc",
-                padding: "15px",
-                borderRadius: "10px",
-                marginBottom: "20px",
-                border: "1px solid #e5e7eb",
-              }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", fontSize: "14px" }}>
+            <div className="bg-slate-50 p-4 rounded-[10px] mb-5 border border-gray-200">
+              <div className="grid grid-cols-2 gap-2.5 text-sm">
                 <div>
-                  <span style={{ color: "#6b7280" }}>Customer:</span>
-                  <div style={{ fontWeight: "600", color: "#374151" }}>{editingTransaction.customer?.name || "-"}</div>
+                  <span className="text-gray-500">Customer:</span>
+                  <div className="font-semibold text-gray-700">{editingTransaction.customer?.name || "-"}</div>
                 </div>
                 <div>
-                  <span style={{ color: "#6b7280" }}>Quantity:</span>
-                  <div style={{ fontWeight: "600", color: "#374151" }}>
+                  <span className="text-gray-500">Quantity:</span>
+                  <div className="font-semibold text-gray-700">
                     {Number(editingTransaction.amount).toFixed(2)} {editingTransaction.unit}
                   </div>
                 </div>
                 <div>
-                  <span style={{ color: "#6b7280" }}>Date:</span>
-                  <div style={{ fontWeight: "600", color: "#374151" }}>{new Date(editingTransaction.date).toLocaleDateString("en-IN")}</div>
+                  <span className="text-gray-500">Date:</span>
+                  <div className="font-semibold text-gray-700">{new Date(editingTransaction.date).toLocaleDateString("en-IN")}</div>
                 </div>
                 <div>
-                  <span style={{ color: "#6b7280" }}>Driver:</span>
-                  <div style={{ fontWeight: "600", color: "#374151" }}>{editingTransaction.driver?.name || "-"}</div>
+                  <span className="text-gray-500">Driver:</span>
+                  <div className="font-semibold text-gray-700">{editingTransaction.driver?.name || "-"}</div>
                 </div>
               </div>
             </div>
 
             {/* Amount Input */}
-            <div style={{ marginBottom: "20px" }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "8px",
-                  fontWeight: "600",
-                  fontSize: "14px",
-                  color: "#374151",
-                }}>
-                Quantity (Kg)
-              </label>
+            <div className="mb-5">
+              <label className="block mb-2 font-semibold text-sm text-gray-700">Quantity (Kg)</label>
               <input
                 type="number"
                 value={editAmount}
                 onChange={(e) => handleAmountChange(e.target.value)}
                 placeholder="Enter quantity"
-                style={{
-                  width: "100%",
-                  padding: "12px 14px",
-                  border: "2px solid #e5e7eb",
-                  borderRadius: "10px",
-                  fontSize: "16px",
-                  outline: "none",
-                  transition: "border-color 0.2s",
-                  boxSizing: "border-box",
-                }}
-                onFocus={(e) => (e.target.style.borderColor = "#3b82f6")}
-                onBlur={(e) => (e.target.style.borderColor = "#e5e7eb")}
+                className="w-full p-3 px-3.5 border-2 border-gray-200 rounded-[10px] text-base outline-none focus:border-blue-500 transition-all box-border"
               />
             </div>
 
             {/* Rate Input */}
-            <div style={{ marginBottom: "20px" }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "8px",
-                  fontWeight: "600",
-                  fontSize: "14px",
-                  color: "#374151",
-                }}>
-                Rate (₹ per unit)
-              </label>
+            <div className="mb-5">
+              <label className="block mb-2 font-semibold text-sm text-gray-700">Rate (₹ per unit)</label>
               <input
                 type="number"
                 value={editRate}
                 onChange={(e) => handleRateChange(e.target.value)}
                 placeholder="Enter rate"
-                style={{
-                  width: "100%",
-                  padding: "12px 14px",
-                  border: "2px solid #e5e7eb",
-                  borderRadius: "10px",
-                  fontSize: "16px",
-                  outline: "none",
-                  transition: "border-color 0.2s",
-                  boxSizing: "border-box",
-                }}
-                onFocus={(e) => (e.target.style.borderColor = "#3b82f6")}
-                onBlur={(e) => (e.target.style.borderColor = "#e5e7eb")}
+                className="w-full p-3 px-3.5 border-2 border-gray-200 rounded-[10px] text-base outline-none focus:border-blue-500 transition-all box-border"
               />
             </div>
 
             {/* Total Amount Input */}
-            <div style={{ marginBottom: "25px" }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "8px",
-                  fontWeight: "600",
-                  fontSize: "14px",
-                  color: "#374151",
-                }}>
-                Total Amount (₹)
-              </label>
+            <div className="mb-6">
+              <label className="block mb-2 font-semibold text-sm text-gray-700">Total Amount (₹)</label>
               <input
                 type="number"
                 value={editTotalAmount}
                 onChange={(e) => setEditTotalAmount(e.target.value)}
                 placeholder="Enter total amount"
-                style={{
-                  width: "100%",
-                  padding: "12px 14px",
-                  border: "2px solid #e5e7eb",
-                  borderRadius: "10px",
-                  fontSize: "16px",
-                  outline: "none",
-                  transition: "border-color 0.2s",
-                  boxSizing: "border-box",
-                  background: "#f8fafc",
-                }}
-                onFocus={(e) => (e.target.style.borderColor = "#3b82f6")}
-                onBlur={(e) => (e.target.style.borderColor = "#e5e7eb")}
+                className="w-full p-3 px-3.5 border-2 border-gray-200 rounded-[10px] text-base outline-none focus:border-blue-500 transition-all box-border bg-slate-50"
               />
-              <p style={{ margin: "8px 0 0", fontSize: "12px", color: "#6b7280" }}>
-                Auto-calculated: Rate × Quantity = ₹{editRate && editAmount ? (Number(editRate) * Number(editAmount)).toFixed(2) : "0.00"}
-              </p>
+              <p className="mt-2 text-xs text-gray-500">Auto-calculated: Rate × Quantity = ₹{editRate && editAmount ? (Number(editRate) * Number(editAmount)).toFixed(2) : "0.00"}</p>
             </div>
 
             {/* Details Input */}
-            <div style={{ marginBottom: "25px" }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "8px",
-                  fontWeight: "600",
-                  fontSize: "14px",
-                  color: "#374151",
-                }}>
-                Details
-              </label>
+            <div className="mb-6">
+              <label className="block mb-2 font-semibold text-sm text-gray-700">Details</label>
               <textarea
                 value={editDetails}
                 onChange={(e) => setEditDetails(e.target.value)}
                 placeholder="Enter details / notes"
                 rows={3}
-                style={{
-                  width: "100%",
-                  padding: "12px 14px",
-                  border: "2px solid #e5e7eb",
-                  borderRadius: "10px",
-                  fontSize: "14px",
-                  outline: "none",
-                  transition: "border-color 0.2s",
-                  boxSizing: "border-box",
-                  fontFamily: "inherit",
-                  resize: "vertical",
-                }}
-                onFocus={(e) => (e.currentTarget.style.borderColor = "#3b82f6")}
-                onBlur={(e) => (e.currentTarget.style.borderColor = "#e5e7eb")}
+                className="w-full p-3 px-3.5 border-2 border-gray-200 rounded-[10px] text-sm outline-none focus:border-blue-500 transition-all box-border font-inherit resize-y"
               />
             </div>
 
             {/* Action Buttons */}
-            <div style={{ display: "flex", gap: "12px" }}>
+            <div className="flex gap-3">
               <button
                 onClick={closeEditModal}
-                style={{
-                  flex: 1,
-                  padding: "12px 20px",
-                  background: "#f3f4f6",
-                  color: "#374151",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "10px",
-                  cursor: "pointer",
-                  fontWeight: "600",
-                  fontSize: "15px",
-                  transition: "background 0.2s",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = "#e5e7eb")}
-                onMouseLeave={(e) => (e.currentTarget.style.background = "#f3f4f6")}>
+                className="flex-1 py-3 px-5 bg-gray-100 text-gray-700 border border-gray-300 rounded-[10px] cursor-pointer font-semibold text-[15px] hover:bg-gray-200 transition-colors">
                 Cancel
               </button>
               <button
                 onClick={handleSaveEdit}
                 disabled={saving}
-                style={{
-                  flex: 1,
-                  padding: "12px 20px",
-                  background: saving ? "#9ca3af" : "#10b981",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "10px",
-                  cursor: saving ? "not-allowed" : "pointer",
-                  fontWeight: "600",
-                  fontSize: "15px",
-                  transition: "background 0.2s",
-                }}
-                onMouseEnter={(e) => !saving && (e.currentTarget.style.background = "#059669")}
-                onMouseLeave={(e) => !saving && (e.currentTarget.style.background = "#10b981")}>
+                className={`flex-1 py-3 px-5 rounded-[10px] font-semibold text-[15px] transition-colors ${
+                  saving ? "bg-gray-400 text-white cursor-not-allowed" : "bg-emerald-500 text-white cursor-pointer hover:bg-emerald-600"
+                }`}>
                 {saving ? "Saving..." : "Save Changes"}
               </button>
             </div>
@@ -1025,19 +681,3 @@ export default function Bought() {
     </div>
   );
 }
-
-const thStyle: React.CSSProperties = {
-  padding: "14px 16px",
-  textAlign: "left",
-  fontSize: "13px",
-  fontWeight: "600",
-  color: "#475569",
-  textTransform: "uppercase",
-  letterSpacing: "0.5px",
-};
-
-const tdStyle: React.CSSProperties = {
-  padding: "16px",
-  fontSize: "14px",
-  color: "#6b7280",
-};

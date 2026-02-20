@@ -2,6 +2,11 @@ import moment from "moment";
 import "moment-timezone";
 
 const DateService = {
+  isDateWithinToday: (date: Date) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return date.getTime() >= today.getTime() && date.getTime() <= today.getTime() + 24 * 60 * 60 * 1000;
+  },
   getDurationMinutes: (value = 0) => (value > 0 ? moment.duration(value, "minutes").humanize() : "0 seconds"),
 
   getDurationString: (seconds = 0) => {

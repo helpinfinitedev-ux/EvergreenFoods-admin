@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { adminAPI } from "../api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import DateService from "../utils/date";
 
 export default function Sold() {
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -429,21 +430,25 @@ export default function Sold() {
                     <span style={{ color: "#6b7280", fontSize: "13px" }}>{tx.details || "-"}</span>
                   </td>
                   <td style={tdStyle}>
-                    <button
-                      onClick={() => handleDelete(tx)}
-                      disabled={deletingId === tx.id}
-                      style={{
-                        padding: "6px 10px",
-                        background: deletingId === tx.id ? "#e5e7eb" : "#fee2e2",
-                        color: deletingId === tx.id ? "#9ca3af" : "#b91c1c",
-                        border: "1px solid #fecaca",
-                        borderRadius: "6px",
-                        cursor: deletingId === tx.id ? "not-allowed" : "pointer",
-                        fontWeight: "600",
-                        fontSize: "12px",
-                      }}>
-                      {deletingId === tx.id ? "Deleting..." : "Delete"}
-                    </button>
+                    {DateService.isDateWithinToday(new Date(tx.date)) ? (
+                      <button
+                        onClick={() => handleDelete(tx)}
+                        disabled={deletingId === tx.id}
+                        style={{
+                          padding: "6px 10px",
+                          background: deletingId === tx.id ? "#e5e7eb" : "#fee2e2",
+                          color: deletingId === tx.id ? "#9ca3af" : "#b91c1c",
+                          border: "1px solid #fecaca",
+                          borderRadius: "6px",
+                          cursor: deletingId === tx.id ? "not-allowed" : "pointer",
+                          fontWeight: "600",
+                          fontSize: "12px",
+                        }}>
+                        {deletingId === tx.id ? "Deleting..." : "Delete"}
+                      </button>
+                    ) : (
+                      <span style={{ color: "#9ca3af", fontSize: "13px" }}>Not Sold Today</span>
+                    )}
                   </td>
                 </tr>
               ))
