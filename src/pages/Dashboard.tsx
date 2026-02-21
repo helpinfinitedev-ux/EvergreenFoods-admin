@@ -23,6 +23,7 @@ import {
   DialogContent,
   DialogActions,
   Button,
+  CircularProgress,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import EditIcon from "@mui/icons-material/Edit";
@@ -55,6 +56,17 @@ interface DriverActivity {
   totalWeightLoss: number;
 }
 
+interface UnapprovedUpiPayment {
+  id: string;
+  createdAt: string;
+  paymentCash?: number | string | null;
+  paymentUpi?: number | string | null;
+  driver?: { name?: string | null } | null;
+  customer?: { name?: string | null } | null;
+  company?: { name?: string | null } | null;
+  bank?: { name?: string | null } | null;
+}
+
 export default function Dashboard() {
   const [stats, setStats] = useState<any>(null);
   const [expenseSummary, setExpenseSummary] = useState<ExpenseSummary | null>(null);
@@ -66,6 +78,9 @@ export default function Dashboard() {
   const [endDate, setEndDate] = useState<Dayjs>(dayjs().endOf("day"));
   const [driversActivity, setDriversActivity] = useState<DriverActivity[]>([]);
   const [driverSearch, setDriverSearch] = useState("");
+  const [unapprovedUpiPayments, setUnapprovedUpiPayments] = useState<UnapprovedUpiPayment[]>([]);
+  const [loadingUnapprovedUpiPayments, setLoadingUnapprovedUpiPayments] = useState(false);
+  const [approvingPaymentId, setApprovingPaymentId] = useState<string | null>(null);
 
   // Edit Bank Modal State
   const [editBankModalOpen, setEditBankModalOpen] = useState(false);
@@ -82,10 +97,11 @@ export default function Dashboard() {
     const loadStats = async () => {
       try {
         setLoading(true);
+        setLoadingUnapprovedUpiPayments(true);
         const start = startDate.clone().startOf("day").toDate();
         const end = endDate.clone().endOf("day").toDate();
 
-        const [dashboardRes, expenseRes, capitalRes, borrowedRes, companiesRes, driversActivityRes] = await Promise.all([
+        const [dashboardRes, expenseRes, capitalRes, borrowedRes, companiesRes, driversActivityRes, unapprovedUpiPaymentsRes] = await Promise.all([
           adminAPI.getDashboard({ start: start.getTime(), end: end.getTime() }),
           expenseAPI.getSummary({
             startDate: start.toISOString(),
@@ -98,12 +114,14 @@ export default function Dashboard() {
             start: start.toISOString(),
             end: end.toISOString(),
           }),
+          adminAPI.getUnapprovedUpiPayments(),
         ]);
 
         setStats(dashboardRes.data);
         setExpenseSummary(expenseRes.data);
         setTotalCapital(capitalRes.data);
         setDriversActivity(driversActivityRes.data?.driversActivity || []);
+        setUnapprovedUpiPayments(unapprovedUpiPaymentsRes.data || []);
 
         // Calculate Total Udhaar
         const udhaar = (borrowedRes.data || []).reduce((sum: number, item: any) => sum + Number(item.borrowedMoney || 0), 0);
@@ -115,10 +133,23 @@ export default function Dashboard() {
         console.error("Failed to load stats", err);
       } finally {
         setLoading(false);
+        setLoadingUnapprovedUpiPayments(false);
       }
     };
     loadStats();
   }, [startDate, endDate]);
+
+  const fetchUnapprovedUpiPayments = async () => {
+    try {
+      setLoadingUnapprovedUpiPayments(true);
+      const response = await adminAPI.getUnapprovedUpiPayments();
+      setUnapprovedUpiPayments(response.data || []);
+    } catch (error) {
+      console.error("Failed to fetch unapproved UPI payments", error);
+    } finally {
+      setLoadingUnapprovedUpiPayments(false);
+    }
+  };
 
   // Filter drivers by search
   const filteredDriversActivity = driversActivity.filter((driver) => driver.driverName?.toLowerCase().includes(driverSearch.toLowerCase()));
@@ -187,6 +218,19 @@ export default function Dashboard() {
   };
 
   const dateRangeLabel = DateService.getDateInMMDDYYYY(startDate.toISOString()) + " – " + DateService.getDateInMMDDYYYY(endDate.toISOString());
+
+  const handleApproveUpiPayment = async (transactionId: string) => {
+    try {
+      setApprovingPaymentId(transactionId);
+      await adminAPI.approveUpiPayment(transactionId);
+      await fetchUnapprovedUpiPayments();
+    } catch (error: any) {
+      console.error("Failed to approve UPI payment", error);
+      alert(error?.response?.data?.error || "Failed to approve UPI payment");
+    } finally {
+      setApprovingPaymentId(null);
+    }
+  };
 
   return (
     <div style={{ padding: "30px" }}>
@@ -651,6 +695,77 @@ export default function Dashboard() {
           <div style={{ fontSize: "12px", color: "#9ca3af" }}>Against {stats?.todayBuy || 0} KG bought</div>
         </div>
       </div>
+
+      {/* Unapproved UPI Payments Table */}
+      <Paper className="mb-8 rounded-2xl border border-slate-200 shadow-sm" sx={{ overflow: "hidden" }}>
+        <Box className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3 md:px-6">
+          <Typography variant="h6" sx={{ fontWeight: 700, color: "#1f2937" }}>
+            Unapproved UPI Payments
+          </Typography>
+          <Chip
+            size="small"
+            label={`${unapprovedUpiPayments.length} pending`}
+            sx={{ backgroundColor: "#fef3c7", color: "#92400e", fontWeight: 700 }}
+          />
+        </Box>
+        <TableContainer sx={{ maxHeight: 360 }}>
+          <Table stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 700, backgroundColor: "#f8fafc" }}>Date</TableCell>
+                <TableCell sx={{ fontWeight: 700, backgroundColor: "#f8fafc" }}>Driver</TableCell>
+                <TableCell sx={{ fontWeight: 700, backgroundColor: "#f8fafc" }}>Customer / Company</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, backgroundColor: "#f8fafc" }}>
+                  Cash Payment
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, backgroundColor: "#f8fafc" }}>
+                  UPI Payment
+                </TableCell>
+                <TableCell sx={{ fontWeight: 700, backgroundColor: "#f8fafc" }}>UPI Bank</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, backgroundColor: "#f8fafc" }}>
+                  Action
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {loadingUnapprovedUpiPayments ? (
+                <TableRow>
+                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                    <CircularProgress size={24} />
+                  </TableCell>
+                </TableRow>
+              ) : unapprovedUpiPayments.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} align="center" sx={{ py: 4, color: "#6b7280" }}>
+                    No unapproved UPI payments found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                unapprovedUpiPayments.map((payment) => (
+                  <TableRow key={payment.id} hover>
+                    <TableCell>{DateService.getDateInMMDDYYYY(payment.createdAt)}</TableCell>
+                    <TableCell>{payment.driver?.name || "-"}</TableCell>
+                    <TableCell>{payment.customer?.name || payment.company?.name || "-"}</TableCell>
+                    <TableCell align="right">₹{Number(payment.paymentCash || 0).toLocaleString("en-IN")}</TableCell>
+                    <TableCell align="right">₹{Number(payment.paymentUpi || 0).toLocaleString("en-IN")}</TableCell>
+                    <TableCell>{payment.bank?.name || "-"}</TableCell>
+                    <TableCell align="right">
+                      <Button
+                        size="small"
+                        variant="contained"
+                        className="normal-case"
+                        disabled={approvingPaymentId === payment.id}
+                        onClick={() => handleApproveUpiPayment(payment.id)}>
+                        {approvingPaymentId === payment.id ? "Approving..." : "Approve"}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
 
       {/* Expense Summary Section */}
       <h2 style={{ fontSize: "20px", fontWeight: "600", marginBottom: "20px", color: "#374151" }}>Expenses ({dateRangeLabel})</h2>

@@ -26,6 +26,7 @@ export const adminAPI = {
     return api.get("/admin/dashboard", { params });
   },
   approveUpiPayment: (id: string) => api.put(`/admin/transactions/${id}/approve-upi-payment`, { approved: true }),
+  getUnapprovedUpiPayments: (params?: { start?: string; end?: string }) => api.get("/admin/transactions/unapproved", { params }),
   getDrivers: () => api.get("/admin/drivers"),
   getDriversActivitySummary: (params: { start: string; end: string }) => api.get("/admin/drivers/activity-summary", { params }),
   createDriver: (data: { name: string; mobile: string; password: string; baseSalary?: number }) => api.post("/admin/drivers", data),
