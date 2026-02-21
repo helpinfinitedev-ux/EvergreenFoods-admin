@@ -664,7 +664,7 @@ export default function PaymentsReceived() {
                           </Typography>
                         </TableCell>
                         <TableCell sx={{ color: "#6b7280", maxWidth: 200 }}>{payment.details || "-"}</TableCell>
-                        {DateService.isDateWithinToday(new Date(payment.date)) ? (
+                        {DateService.isDateWithinToday(new Date(payment.createdAt)) ? (
                           <TableCell align="center">
                             <IconButton
                               size="small"
