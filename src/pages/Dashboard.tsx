@@ -714,7 +714,8 @@ export default function Dashboard() {
               <TableRow>
                 <TableCell sx={{ fontWeight: 700, backgroundColor: "#f8fafc" }}>Date</TableCell>
                 <TableCell sx={{ fontWeight: 700, backgroundColor: "#f8fafc" }}>Driver</TableCell>
-                <TableCell sx={{ fontWeight: 700, backgroundColor: "#f8fafc" }}>Customer / Company</TableCell>
+                <TableCell sx={{ fontWeight: 700, backgroundColor: "#f8fafc" }}>Customer</TableCell>
+                <TableCell sx={{ fontWeight: 700, backgroundColor: "#f8fafc" }}>Company</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700, backgroundColor: "#f8fafc" }}>
                   Cash Payment
                 </TableCell>
@@ -730,13 +731,13 @@ export default function Dashboard() {
             <TableBody>
               {loadingUnapprovedUpiPayments ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                     <CircularProgress size={24} />
                   </TableCell>
                 </TableRow>
               ) : unapprovedUpiPayments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 4, color: "#6b7280" }}>
+                  <TableCell colSpan={8} align="center" sx={{ py: 4, color: "#6b7280" }}>
                     No unapproved UPI payments found
                   </TableCell>
                 </TableRow>
@@ -745,7 +746,8 @@ export default function Dashboard() {
                   <TableRow key={payment.id} hover>
                     <TableCell>{DateService.getDateInMMDDYYYY(payment.createdAt)}</TableCell>
                     <TableCell>{payment.driver?.name || "-"}</TableCell>
-                    <TableCell>{payment.customer?.name || payment.company?.name || "-"}</TableCell>
+                    <TableCell>{payment.customer?.name || "-"}</TableCell>
+                    <TableCell>{payment.company?.name || "-"}</TableCell>
                     <TableCell align="right">₹{Number(payment.paymentCash || 0).toLocaleString("en-IN")}</TableCell>
                     <TableCell align="right">₹{Number(payment.paymentUpi || 0).toLocaleString("en-IN")}</TableCell>
                     <TableCell>{payment.bank?.name || "-"}</TableCell>
