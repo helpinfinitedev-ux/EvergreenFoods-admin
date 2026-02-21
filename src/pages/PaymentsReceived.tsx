@@ -9,6 +9,7 @@ import { Modal, Typography, Table, TableBody, TableCell, TableContainer, TableHe
 import CloseIcon from "@mui/icons-material/Close";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import DeleteIcon from "@mui/icons-material/Delete";
+import DateService from "../utils/date";
 
 interface Customer {
   id: string;
@@ -633,7 +634,9 @@ export default function PaymentsReceived() {
                         Amount
                       </TableCell>
                       <TableCell sx={{ fontWeight: 600, backgroundColor: "#f9fafb" }}>Description</TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 600, backgroundColor: "#f9fafb", width: 56 }}>Actions</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 600, backgroundColor: "#f9fafb", width: 56 }}>
+                        Actions
+                      </TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -661,21 +664,21 @@ export default function PaymentsReceived() {
                           </Typography>
                         </TableCell>
                         <TableCell sx={{ color: "#6b7280", maxWidth: 200 }}>{payment.details || "-"}</TableCell>
-                        <TableCell align="center">
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => handleDeletePayment(payment.id)}
-                            disabled={deletingPaymentId !== null}
-                            title="Delete payment"
-                            sx={{ "&:hover": { backgroundColor: "rgba(239, 68, 68, 0.08)" } }}>
-                            {deletingPaymentId === payment.id ? (
-                              <CircularProgress size={20} color="error" />
-                            ) : (
-                              <DeleteIcon fontSize="small" />
-                            )}
-                          </IconButton>
-                        </TableCell>
+                        {DateService.isDateWithinToday(new Date(payment.date)) ? (
+                          <TableCell align="center">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleDeletePayment(payment.id)}
+                              disabled={deletingPaymentId !== null}
+                              title="Delete payment"
+                              sx={{ "&:hover": { backgroundColor: "rgba(239, 68, 68, 0.08)" } }}>
+                              {deletingPaymentId === payment.id ? <CircularProgress size={20} color="error" /> : <DeleteIcon fontSize="small" />}
+                            </IconButton>
+                          </TableCell>
+                        ) : (
+                          <div>Not received today</div>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
